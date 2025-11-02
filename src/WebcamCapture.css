@@ -1,4 +1,42 @@
-html, body {
+.camera-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.camera-feed {
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+}
+
+.screen-saver {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  font-size: 2em;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  text-align: center;
+  padding: 20px;
+}
+
+
+
+
+/* html, body {
   margin: 0;
   padding: 0;
   height: 100%;
@@ -95,4 +133,4 @@ html, body {
   font-weight: bold;
   font-size: 1.2em;
   z-index: 11;
-} */
+} */ */

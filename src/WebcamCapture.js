@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import axios from 'axios';
+import * as blazeface from '@tensorflow-models/blazeface';
+import '@tensorflow/tfjs';
 import './WebcamCapture.css';
 
 const WebcamCapture = () => {
@@ -8,16 +10,35 @@ const WebcamCapture = () => {
   const [message, setMessage] = useState('');
   const [screenSaver, setScreenSaver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [model, setModel] = useState(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (!isProcessing && !screenSaver) {
-        captureAndSend();
-      }
-    }, 2000); // every 2 seconds
+    const loadModel = async () => {
+      const loadedModel = await blazeface.load();
+      setModel(loadedModel);
+    };
+    loadModel();
+  }, []);
 
+  useEffect(() => {
+    const detectFace = async () => {
+      if (
+        model &&
+        webcamRef.current &&
+        webcamRef.current.video.readyState === 4 &&
+        !isProcessing &&
+        !screenSaver
+      ) {
+        const predictions = await model.estimateFaces(webcamRef.current.video, false);
+        if (predictions.length > 0) {
+          captureAndSend();
+        }
+      }
+    };
+
+    const interval = setInterval(detectFace, 500); // check every 0.5 sec
     return () => clearInterval(interval);
-  }, [isProcessing, screenSaver]);
+  }, [model, isProcessing, screenSaver]);
 
   const captureAndSend = async () => {
     const imageSrc = webcamRef.current.getScreenshot();
@@ -44,7 +65,7 @@ const WebcamCapture = () => {
         setScreenSaver(false);
         setMessage('');
         setIsProcessing(false);
-      }, 5000); // screen saver duration
+      }, 5000);
     }
   };
 
@@ -104,16 +125,16 @@ export default WebcamCapture;
 
 //       setMessage(`✅ Attendance marked for ${response.data.employee} (Confidence: ${response.data.confidence})`);
 //       setScreenSaver(true);
-
+//     } catch (error) {
+//       const errMsg = error.response?.data?.error || 'Server error';
+//       setMessage(`❌ ${errMsg}`);
+//       setScreenSaver(true);
+//     } finally {
 //       setTimeout(() => {
 //         setScreenSaver(false);
 //         setMessage('');
+//         setIsProcessing(false);
 //       }, 5000); // screen saver duration
-//     } catch (error) {
-//       // Optional: handle errors silently or show message
-//       setMessage('');
-//     } finally {
-//       setIsProcessing(false);
 //     }
 //   };
 
@@ -126,8 +147,7 @@ export default WebcamCapture;
 //         className="camera-feed"
 //         videoConstraints={{ facingMode: 'user' }}
 //       />
-//       {screenSaver && <div className="screen-saver">Attendance Marked</div>}
-//       {message && <div className="message">{message}</div>}
+//       {screenSaver && <div className="screen-saver">{message}</div>}
 //     </div>
 //   );
 // };
@@ -137,76 +157,146 @@ export default WebcamCapture;
 
 
 
-
-
-// // import React, { useRef, useState } from 'react';
+// // import React, { useRef, useState, useEffect } from 'react';
 // // import Webcam from 'react-webcam';
 // // import axios from 'axios';
+// // import './WebcamCapture.css';
 
 // // const WebcamCapture = () => {
 // //   const webcamRef = useRef(null);
-// //   const [name, setName] = useState('');
-// //   const [mode, setMode] = useState('attendance'); // 'register' or 'attendance'
 // //   const [message, setMessage] = useState('');
+// //   const [screenSaver, setScreenSaver] = useState(false);
+// //   const [isProcessing, setIsProcessing] = useState(false);
+
+// //   useEffect(() => {
+// //     const interval = setInterval(() => {
+// //       if (!isProcessing && !screenSaver) {
+// //         captureAndSend();
+// //       }
+// //     }, 2000); // every 2 seconds
+
+// //     return () => clearInterval(interval);
+// //   }, [isProcessing, screenSaver]);
 
 // //   const captureAndSend = async () => {
 // //     const imageSrc = webcamRef.current.getScreenshot();
-// //     if (!imageSrc) {
-// //       setMessage('❌ Unable to capture image. Please try again.');
-// //       return;
-// //     }
+// //     if (!imageSrc) return;
 
+// //     setIsProcessing(true);
 // //     const blob = await (await fetch(imageSrc)).blob();
 // //     const formData = new FormData();
 // //     formData.append('image', blob, 'face.jpg');
-// //     if (mode === 'register') formData.append('name', name);
 
 // //     try {
-// //       const endpoint = mode === 'register' ? '/register/' : '/attendance/';
-// //       const response = await axios.post(endpoint, formData, {
+// //       const response = await axios.post('/attendance/', formData, {
 // //         headers: { 'Content-Type': 'multipart/form-data' },
 // //       });
 
-// //       if (mode === 'register') {
-// //         setMessage(`✅ Registered: ${response.data.name} (ID: ${response.data.employee_id})`);
-// //       } else {
-// //         setMessage(`✅ Attendance marked for ${response.data.employee} (Confidence: ${response.data.confidence})`);
-// //       }
+// //       setMessage(`✅ Attendance marked for ${response.data.employee} (Confidence: ${response.data.confidence})`);
+// //       setScreenSaver(true);
+
+// //       setTimeout(() => {
+// //         setScreenSaver(false);
+// //         setMessage('');
+// //       }, 5000); // screen saver duration
 // //     } catch (error) {
-// //       const errMsg = error.response?.data?.error || 'Server error. Try again.';
-// //       setMessage(`❌ ${errMsg}`);
+// //       // Optional: handle errors silently or show message
+// //       setMessage('');
+// //     } finally {
+// //       setIsProcessing(false);
 // //     }
 // //   };
 
 // //   return (
-// //     <div style={{ textAlign: 'center' }}>
-// //       <h2>{mode === 'register' ? 'Face Registration' : 'Mark Attendance'}</h2>
+// //     <div className="camera-wrapper">
 // //       <Webcam
 // //         audio={false}
 // //         ref={webcamRef}
 // //         screenshotFormat="image/jpeg"
-// //         width={320}
-// //         height={240}
+// //         className="camera-feed"
 // //         videoConstraints={{ facingMode: 'user' }}
 // //       />
-// //       {mode === 'register' && (
-// //         <input
-// //           type="text"
-// //           placeholder="Enter name"
-// //           value={name}
-// //           onChange={(e) => setName(e.target.value)}
-// //           style={{ marginTop: '10px', padding: '5px' }}
-// //         />
-// //       )}
-// //       <div style={{ marginTop: '10px' }}>
-// //         <button onClick={captureAndSend}>📷 Capture & Submit</button>
-// //         <button onClick={() => setMode(mode === 'register' ? 'attendance' : 'register')} style={{ marginLeft: '10px' }}>
-// //           🔄 Switch to {mode === 'register' ? 'Attendance' : 'Register'}
-// //         </button>
-// //       </div>
-// //       <p style={{ marginTop: '20px', fontWeight: 'bold' }}>{message}</p>
+// //       {screenSaver && <div className="screen-saver">Attendance Marked</div>}
+// //       {message && <div className="message">{message}</div>}
 // //     </div>
 // //   );
 // // };
 
 // // export default WebcamCapture;
+
+
+
+
+
+
+// // // import React, { useRef, useState } from 'react';
+// // // import Webcam from 'react-webcam';
+// // // import axios from 'axios';
+
+// // // const WebcamCapture = () => {
+// // //   const webcamRef = useRef(null);
+// // //   const [name, setName] = useState('');
+// // //   const [mode, setMode] = useState('attendance'); // 'register' or 'attendance'
+// // //   const [message, setMessage] = useState('');
+
+// // //   const captureAndSend = async () => {
+// // //     const imageSrc = webcamRef.current.getScreenshot();
+// // //     if (!imageSrc) {
+// // //       setMessage('❌ Unable to capture image. Please try again.');
+// // //       return;
+// // //     }
+
+// // //     const blob = await (await fetch(imageSrc)).blob();
+// // //     const formData = new FormData();
+// // //     formData.append('image', blob, 'face.jpg');
+// // //     if (mode === 'register') formData.append('name', name);
+
+// // //     try {
+// // //       const endpoint = mode === 'register' ? '/register/' : '/attendance/';
+// // //       const response = await axios.post(endpoint, formData, {
+// // //         headers: { 'Content-Type': 'multipart/form-data' },
+// // //       });
+
+// // //       if (mode === 'register') {
+// // //         setMessage(`✅ Registered: ${response.data.name} (ID: ${response.data.employee_id})`);
+// // //       } else {
+// // //         setMessage(`✅ Attendance marked for ${response.data.employee} (Confidence: ${response.data.confidence})`);
+// // //       }
+// // //     } catch (error) {
+// // //       const errMsg = error.response?.data?.error || 'Server error. Try again.';
+// // //       setMessage(`❌ ${errMsg}`);
+// // //     }
+// // //   };
+
+// // //   return (
+// // //     <div style={{ textAlign: 'center' }}>
+// // //       <h2>{mode === 'register' ? 'Face Registration' : 'Mark Attendance'}</h2>
+// // //       <Webcam
+// // //         audio={false}
+// // //         ref={webcamRef}
+// // //         screenshotFormat="image/jpeg"
+// // //         width={320}
+// // //         height={240}
+// // //         videoConstraints={{ facingMode: 'user' }}
+// // //       />
+// // //       {mode === 'register' && (
+// // //         <input
+// // //           type="text"
+// // //           placeholder="Enter name"
+// // //           value={name}
+// // //           onChange={(e) => setName(e.target.value)}
+// // //           style={{ marginTop: '10px', padding: '5px' }}
+// // //         />
+// // //       )}
+// // //       <div style={{ marginTop: '10px' }}>
+// // //         <button onClick={captureAndSend}>📷 Capture & Submit</button>
+// // //         <button onClick={() => setMode(mode === 'register' ? 'attendance' : 'register')} style={{ marginLeft: '10px' }}>
+// // //           🔄 Switch to {mode === 'register' ? 'Attendance' : 'Register'}
+// // //         </button>
+// // //       </div>
+// // //       <p style={{ marginTop: '20px', fontWeight: 'bold' }}>{message}</p>
+// // //     </div>
+// // //   );
+// // // };
+
+// // // export default WebcamCapture;
