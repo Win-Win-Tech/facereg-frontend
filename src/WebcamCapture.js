@@ -92,7 +92,8 @@ const WebcamCapture = () => {
 
       const response = await axios.post(
         //'http://127.0.0.1:8000/api/attendance/',
-        'http://147.93.27.224:8002/api/attendance/',
+        //'http://147.93.27.224:8002/api/attendance/',
+        'https://apigatekeeper.cloudgentechnologies.com/api/attendance/',
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
