@@ -449,6 +449,7 @@ html, body {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+
 .feature-card {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -609,13 +610,19 @@ html, body {
 
 .detection-frame {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
   border: 3px solid rgba(59, 130, 246, 0.55);
-  border-radius: 12px;
+  border-radius: 0;
   pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .scanning-line {
@@ -741,6 +748,38 @@ html, body {
   font-weight: 600;
 }
 
+/* DashboardReports tab UI */
+.reports-tab-header {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(148,163,184,0.12);
+  color: #475569;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.tab-button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(37,99,235,0.06); }
+
+.tab-button.active {
+  background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(99,102,241,0.12));
+  color: #1d4ed8;
+  border-color: rgba(59,130,246,0.25);
+}
+
+.reports-tab-panel { background: rgba(255,255,255,0.95); padding: 18px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.08); }
+
+.report-section { margin: 8px 0; }
+
 /* About */
 .about-content {
   background: rgba(255, 255, 255, 0.92);
@@ -748,6 +787,36 @@ html, body {
   border: 1px solid rgba(148, 163, 184, 0.18);
   padding: 40px;
   box-shadow: 0 22px 48px rgba(15, 23, 42, 0.12);
+}
+
+.about-screen {
+  display: block;
+}
+
+.about-content {
+  max-height: calc(100vh - 50px); /* account for header and page padding */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  padding-right: 12px; /* room for scrollbar */
+}
+
+/* Styled scrollbar for desktop browsers */
+.about-content::-webkit-scrollbar {
+  width: 10px;
+}
+.about-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.about-content::-webkit-scrollbar-thumb {
+  background: rgba(15,23,42,0.12);
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.9);
+}
+
+/* Firefox */
+.about-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15,23,42,0.12) transparent;
 }
 
 .about-header {
@@ -798,6 +867,113 @@ html, body {
   text-align: center;
   color: #475569;
   font-size: 0.9rem;
+}
+
+/* Company info responsive helpers */
+.about-company {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.company-info {
+  flex: 1 1 360px;
+  min-width: 220px;
+}
+
+.company-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.company-address {
+  margin-bottom: 12px;
+  color: #475569;
+}
+
+.contact-info {
+  flex: 1 1 320px;
+  min-width: 220px;
+}
+
+.contact-grid {
+  display: grid;
+  /* use auto-fit so items wrap and never overflow the container */
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.contact-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px; /* slightly reduced padding to avoid overflow */
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.03);
+  text-decoration: none;
+  color: inherit;
+  min-width: 0; /* allow flex items to shrink inside grid */
+}
+
+.contact-item .contact-icon {
+  font-size: 1.25rem;
+}
+
+.contact-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* allow text to wrap instead of overflowing */
+}
+
+.contact-label {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.contact-value {
+  font-weight: 600;
+  color: #0f172a;
+  white-space: normal;
+  word-break: break-word;
+}
+
+@media (max-width: 1024px) {
+  .about-content {
+    padding: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .about-content {
+    padding: 20px;
+  }
+  .about-company {
+    flex-direction: column;
+    gap: 18px;
+  }
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-content {
+    padding: 16px;
+  }
+  .about-title {
+    font-size: 1.5rem;
+  }
+  .company-name {
+    font-size: 1rem;
+  }
+  .contact-item {
+    padding: 10px;
+  }
 }
 
 /* Bottom Tab Navigation */
@@ -865,6 +1041,48 @@ html, body {
   align-items: flex-start;
   pointer-events: auto;
   animation: toastIn 0.3s ease;
+  max-width: 420px;
+  width: 100%;
+}
+
+.toast-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.toast-photo {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+}
+
+.toast-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.toast-details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.toast-confidence {
+  color: #059669;
+  font-weight: 600;
+}
+
+.toast-timestamp {
+  color: #6b7280;
 }
 
 /* Hero (large) toast */
@@ -876,6 +1094,21 @@ html, body {
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(79, 70, 229, 0.1)), #ffffff;
   border: 1px solid rgba(59, 130, 246, 0.25);
   box-shadow: 0 28px 60px rgba(37, 99, 235, 0.25);
+}
+
+.toast.info.hero {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(99, 102, 241, 0.08)), #ffffff;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.toast.info .toast-message {
+  margin-top: 8px;
+}
+
+.toast .time-info {
+  font-weight: 600;
+  color: #3b82f6;
+  margin-top: 4px;
 }
 
 .toast.hero .toast-icon {
@@ -923,6 +1156,7 @@ html, body {
   color: #475569;
   line-height: 1.6;
   word-break: break-word;
+  white-space: pre-line;
 }
 
 .toast-close {
@@ -1049,6 +1283,12 @@ html, body {
 
   .detection-frame {
     border-radius: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
   }
 
   .camera-feed {
@@ -1202,3 +1442,4 @@ button:focus-visible {
 .main-content {
   scroll-behavior: smooth;
 }
+

@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as blazeface from '@tensorflow-models/blazeface';
 import '@tensorflow/tfjs';
 import './WebcamCapture.css';
+import DashboardReports from './DashboardReports';
 
 const menuItems = [
   { id: 'home', icon: '🏠', label: 'Dashboard' },
@@ -22,7 +23,7 @@ const WebcamCapture = () => {
   const [faceDetected, setFaceDetected] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [stoppedState, setStoppedState] = useState('idle'); // 'completed' | 'error' | 'cancelled' | 'retry'
+  const [stoppedState, setStoppedState] = useState('idle');
 
   const isProcessingRef = useRef(false);
   const modelLoadedRef = useRef(false);
@@ -38,7 +39,6 @@ const WebcamCapture = () => {
     }, 300);
   }, []);
 
-  // Dismiss all toasts when interacting with buttons
   const dismissAllToasts = useCallback(() => {
     setToasts(prev => prev.map(toast => ({ ...toast, exiting: true })));
     setTimeout(() => {
@@ -56,7 +56,7 @@ const WebcamCapture = () => {
     }
 
     const id = Date.now();
-    const toast = { id, type, title, message, variant: options.variant };
+    const toast = { id, type, title, message, variant: options.variant, options };
     setToasts(prev => [...prev, toast]);
     
     setTimeout(() => {
@@ -70,18 +70,13 @@ const WebcamCapture = () => {
     
     const loadModel = async () => {
       try {
-        // showToast('info', 'Loading Model', 'Initializing face detection...', 'model-loading');
         const loadedModel = await blazeface.load();
         if (!cancelled) {
           setModel(loadedModel);
           modelLoadedRef.current = true;
-          // showToast('success', 'Ready', 'Face detection is active', 'model-ready');
         }
       } catch (err) {
         console.error('Failed to load model', err);
-        if (!cancelled) {
-          // showToast('error', 'Error', 'Failed to load face detection model', 'model-error');
-        }
       }
     };
     
@@ -120,6 +115,17 @@ const WebcamCapture = () => {
     setStoppedState(reason || 'idle');
   }, []);
 
+  const fetchAttendanceDetails = async (employeeId) => {
+    try {
+      const response = await axios.get(`http://127.0.0.1:8000/api/attendance-summary/`);
+      const employeeData = response.data.find(record => record.employee === employeeId);
+      return employeeData;
+    } catch (error) {
+      console.error('Error fetching attendance details:', error);
+      return null;
+    }
+  };
+
   const captureAndSend = useCallback(async () => {
     if (!webcamRef.current || isProcessingRef.current) return;
     
@@ -142,23 +148,59 @@ const WebcamCapture = () => {
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
 
-      if (response.data.employee) {
+      const data = response.data;
+      console.log("data", data);
+      
+      if (data.status === 'Already marked') {
+        const attendanceDetails = await fetchAttendanceDetails(data.employee);
+        const checkinTime = attendanceDetails?.checkin ? 
+          new Date(`2000-01-01 ${attendanceDetails.checkin}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
+          'Not marked';
+        const checkoutTime = attendanceDetails?.checkout ? 
+          new Date(`2000-01-01 ${attendanceDetails.checkout}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
+          'Not marked';
+
+        const message = `Hello ${data.employee}!\nYour attendance for today is already recorded:\n\nCheck-in: ${checkinTime}\nCheck-out: ${checkoutTime}`;
+        
+        showToast(
+          'info',
+          'Already Checked In/Out',
+          message,
+          'attendance-already-marked',
+          { 
+            durationMs: 8000, 
+            variant: 'hero',
+            photo: data.photo
+          }
+        );
+        stopCameraWith('completed');
+        setTimeout(() => {
+          setStarted(false);
+        }, 2000);
+      } else if (data.status?.includes('successful')) {
+        const isCheckin = data.status.toLowerCase().includes('checkin');
         showToast(
           'success',
-          'Face Recognized',
-          `Welcome ${response.data.employee}! Attendance marked at ${response.data.timestamp}`,
+          isCheckin ? 'Check-In Successful' : 'Check-Out Successful',
+          data.message,
           'attendance-success',
-          { durationMs: 6000, variant: 'hero' }
+          { 
+            durationMs: 6000, 
+            variant: 'hero',
+            confidence: data.confidence,
+            timestamp: data.timestamp,
+            photo: data.photo
+          }
         );
-        // Navigate to attendance activate screen after success
         stopCameraWith('completed');
-        setStarted(false);
-        window.location.hash = '#/attendance';
+        setTimeout(() => {
+          setStarted(false);
+        }, 2000);
       } else {
         showToast(
           'error',
-          'Unknown Face',
-          'This face is not registered in the system. Please contact administrator.',
+          'Unknown Response',
+          'Received unexpected response from server.',
           'attendance-unknown'
         );
       }
@@ -173,13 +215,18 @@ const WebcamCapture = () => {
       let errTitle = 'Connection Error';
       
       if (error.response?.data?.error) {
-        if (error.response.data.error.includes('No face detected')) {
-          errTitle = 'No Face Found';
-          errMsg = 'Please ensure your face is clearly visible in the frame';
-        } else if (error.response.data.error.includes('not registered') || 
-                   error.response.data.error.includes('not recognized')) {
-          errTitle = 'Unregistered Face';
-          errMsg = 'Your face is not registered in the system. Please contact administrator.';
+        switch (error.response.data.error) {
+          case 'No face detected':
+            errTitle = 'No Face Found';
+            errMsg = 'Please ensure your face is clearly visible in the frame';
+            break;
+          case 'Face not recognized':
+            errTitle = 'Unregistered Face';
+            errMsg = 'Your face is not registered in the system. Please contact administrator.';
+            break;
+          default:
+            errTitle = 'Error';
+            errMsg = error.response.data.error;
         }
       }
       
@@ -189,7 +236,7 @@ const WebcamCapture = () => {
       isProcessingRef.current = false;
       setIsProcessing(false);
     }
-  }, [showToast, stopCamera]);
+  }, [showToast, stopCameraWith, fetchAttendanceDetails]);
 
   useEffect(() => {
     if (!started || !cameraActive || !model) {
@@ -258,12 +305,12 @@ const WebcamCapture = () => {
 
   const handleRetry = useCallback(() => {
     dismissAllToasts();
-    setCameraActive(true);
+    setStarted(false);
+    setCameraActive(false);
     isProcessingRef.current = false;
     setIsProcessing(false);
-    setStoppedState('retry');
-    showToast('info', 'Camera Ready', 'Position your face in the frame', 'camera-ready');
-  }, [showToast, dismissAllToasts]);
+    setStoppedState('idle');
+  }, [dismissAllToasts]);
 
   const handleTabChange = (tab) => {
     dismissAllToasts();
@@ -278,7 +325,6 @@ const WebcamCapture = () => {
     setSidebarOpen(false);
   };
 
-  // Keep activeTab in sync with URL hash and stop camera when leaving attendance
   useEffect(() => {
     const applyFromHash = () => {
       const hash = window.location.hash || '#/';
@@ -319,29 +365,11 @@ const WebcamCapture = () => {
             </button>
           ))}
         </nav>
-       
       </aside>
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <div className="main-wrapper">
-        {/* <header className="top-nav">
-          <div className="nav-left">
-            <button className="menu-toggle" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
-              ☰
-            </button>
-          
-          </div>
-          {started && (
-            <div className={`status-indicator-badge ${faceDetected ? 'scanning' : 'ready'}`}>
-              <span className="status-dot"></span>
-              {faceDetected ? 'Face Detected' : 'Ready'}
-            </div>
-          )}
-        </header> */}
-
-       
-
         <main className="main-content">
           {activeTab === 'home' && (
             <div className="home-screen">
@@ -392,15 +420,6 @@ const WebcamCapture = () => {
 
           {activeTab === 'attendance' && (
             <div className="attendance-screen">
-              <style>{`
-                .camera-container {
-                  position: relative;
-                  width: 100vw;
-                  height: 100vh;
-                  overflow: hidden;
-                  background: #000;
-                }
-              `}</style>
               {!started ? (
                 <div className="attendance-start">
                   <div className="start-card">
@@ -491,29 +510,7 @@ const WebcamCapture = () => {
           )}
 
           {activeTab === 'reports' && (
-            <div className="reports-screen">
-              <div className="reports-header">
-                <h2 className="reports-title">Attendance Reports</h2>
-                <p className="reports-subtitle">Powerful analytics to understand workforce presence</p>
-              </div>
-              <div className="reports-grid">
-                <div className="report-card">
-                  <h3 className="report-metric">Monthly Summary</h3>
-                  <p className="report-text">Download detailed monthly attendance logs and trend charts.</p>
-                </div>
-                <div className="report-card">
-                  <h3 className="report-metric">Late Arrivals</h3>
-                  <p className="report-text">Identify repeated late arrivals and proactively reach out.</p>
-                </div>
-                <div className="report-card">
-                  <h3 className="report-metric">Overtime Tracking</h3>
-                  <p className="report-text">Monitor overtime hours to ensure compliance and efficiency.</p>
-                </div>
-              </div>
-              <div className="reports-footer">
-                <p className="reports-note">Full analytics suite coming soon. Stay tuned!</p>
-              </div>
-            </div>
+            <DashboardReports />
           )}
 
           {activeTab === 'about' && (
@@ -521,7 +518,7 @@ const WebcamCapture = () => {
               <div className="about-content">
                 <div className="about-header">
                   <h2 className="about-title">About FaceRec Attendance</h2>
-                  <p className="about-subtitle">Version 1.0.0</p>
+                  {/* <p className="about-subtitle">Version 1.0.0</p> */}
                 </div>
 
                 <div className="about-section">
@@ -551,8 +548,60 @@ const WebcamCapture = () => {
                   </p>
                 </div>
 
+                <div className="about-divider"></div>
+
+                <div className="about-company">
+                  <h3 className="section-title">Developed By</h3>
+                  <div className="company-info">
+                    <div className="company-name">
+                      <span className="company-icon">🏢</span>
+                      <strong>CloudGen Technologies</strong>
+                    </div>
+                    <div className="company-address">
+                      <p>
+                        Plot #16, Arun Hi-Tech City<br />
+                        Surya Nagar, Madurai, Tamil Nadu
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="contact-info">
+                    <h4 className="contact-title">Get in Touch</h4>
+                    <div className="contact-grid">
+                      <a href="tel:+918946066577" className="contact-item">
+                        <span className="contact-icon">📞</span>
+                        <div className="contact-details">
+                          <span className="contact-label">Phone</span>
+                          <span className="contact-value">+91 89460 66577</span>
+                        </div>
+                      </a>
+                      <a href="tel:+916369070815" className="contact-item">
+                        <span className="contact-icon">📱</span>
+                        <div className="contact-details">
+                          <span className="contact-label">Mobile</span>
+                          <span className="contact-value">+91 63690 70815</span>
+                        </div>
+                      </a>
+                      <a href="mailto:sales@cloudgentechnologies.com" className="contact-item">
+                        <span className="contact-icon">✉️</span>
+                        <div className="contact-details">
+                          <span className="contact-label">Email</span>
+                          <span className="contact-value">sales@cloudgentechnologies.com</span>
+                        </div>
+                      </a>
+                      <a href="https://cloudgentechnologies.com" target="_blank" rel="noopener noreferrer" className="contact-item">
+                        <span className="contact-icon">🌐</span>
+                        <div className="contact-details">
+                          <span className="contact-label">Website</span>
+                          <span className="contact-value">cloudgentechnologies.com</span>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="about-footer">
-                  <p className="footer-text">© 2024 FaceRec Attendance System • Crafted for modern teams</p>
+                  <p className="footer-text">© 2024 CloudGen Technologies • Crafted for modern teams</p>
                 </div>
               </div>
             </div>
@@ -585,8 +634,31 @@ const WebcamCapture = () => {
               {toast.type === 'info' && 'i'}
             </div>
             <div className="toast-content">
-              <div className="toast-title">{toast.title}</div>
-              <div className="toast-message">{toast.message}</div>
+              <div className="toast-header">
+                {toast.options?.photo && (
+                  <div className="toast-photo">
+                    <img src={toast.options.photo} alt="Employee" />
+                  </div>
+                )}
+                <div>
+                  <div className="toast-title">{toast.title}</div>
+                  <div className="toast-message">{toast.message}</div>
+                </div>
+              </div>
+              {(toast.options?.confidence || toast.options?.timestamp || toast.options?.times) && (
+                <div className="toast-details">
+                  {toast.options.confidence && (
+                    <div className="toast-confidence">
+                      Match Confidence: {(toast.options.confidence * 100).toFixed(0)}%
+                    </div>
+                  )}
+                  {toast.options.timestamp && toast.type !== 'info' && (
+                    <div className="toast-timestamp">
+                      {new Date(toast.options.timestamp).toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <button
               className="toast-close"
