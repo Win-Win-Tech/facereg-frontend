@@ -50,6 +50,34 @@
   z-index: 5;
 }
 
+.location-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+}
+
+.location-chip .chip-icon {
+  font-size: 1.1rem;
+}
+
+.location-chip .chip-text {
+  line-height: 1;
+}
+
+.reports-location-chip {
+  margin: 12px 16px 0;
+  display: inline-flex;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
 .tab-button {
   background: transparent;
   border: none;
@@ -623,6 +651,22 @@
   background: rgba(254,242,242,0.8);
 }
 
+.summary-status {
+  margin: 12px 0;
+  padding: 14px 18px;
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  color: #1d4ed8;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.summary-status.subtle {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #475569;
+}
+
 .no-data {
   flex: 1;
   display: flex;
@@ -1096,5 +1140,124 @@
 
   .attendance-month-title {
     font-size: 1.25rem;
+  }
+}
+
+.summary-table-wrapper,
+.attendance-cards-scroll-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.summary-table-wrapper.limited {
+  max-height: min(360px, calc(100vh - 260px));
+}
+
+.attendance-cards-scroll-container.limited {
+  max-height: min(360px, calc(100vh - 260px));
+}
+
+.summary-table,
+.payroll-table {
+  width: 100%;
+  min-width: 640px;
+}
+
+.payroll-table td,
+.payroll-table th {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .reports-container {
+    padding: 0;
+  }
+
+  .reports-tab-panel {
+    padding: 16px;
+  }
+
+  .summary-table thead th,
+  .summary-table tbody td,
+  .table-content-wrapper,
+  .summary-table-wrapper {
+    font-size: 0.85rem;
+  }
+
+  .summary-table,
+  .payroll-table {
+    min-width: 480px;
+  }
+}
+
+@media (max-width: 576px) {
+  .summary-table-wrapper,
+  .summary-table-wrapper.limited,
+  .attendance-cards-scroll-container,
+  .attendance-cards-scroll-container.limited {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .summary-table,
+  .summary-table thead,
+  .summary-table tbody,
+  .summary-table th,
+  .summary-table td,
+  .summary-table tr,
+  .payroll-table,
+  .payroll-table thead,
+  .payroll-table tbody,
+  .payroll-table th,
+  .payroll-table td,
+  .payroll-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .summary-table thead,
+  .payroll-table thead {
+    display: none;
+  }
+
+  .summary-table tbody,
+  .payroll-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .summary-table tbody tr,
+  .payroll-table tbody tr {
+    background: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  }
+
+  .summary-table tbody td,
+  .payroll-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-top: none;
+  }
+
+  .summary-table tbody td::before,
+  .payroll-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #64748b;
+    margin-right: 16px;
+    text-transform: capitalize;
+  }
+
+  .summary-table tbody td.no-data,
+  .payroll-table tbody td.no-data {
+    justify-content: center;
+    text-align: center;
   }
 }

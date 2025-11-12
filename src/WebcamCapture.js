@@ -1,19 +1,61 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Webcam from 'react-webcam';
-import axios from 'axios';
 import * as blazeface from '@tensorflow-models/blazeface';
 import '@tensorflow/tfjs';
 import './WebcamCapture.css';
+import { markAttendance, getTodayAttendanceSummary } from './api/attendanceApi';
 import DashboardReports from './DashboardReports';
-
-const menuItems = [
-  { id: 'home', icon: '🏠', label: 'Dashboard' },
-  { id: 'attendance', icon: '📸', label: 'Attendance' },
-  { id: 'reports', icon: '📊', label: 'Reports' },
-  { id: 'about', icon: 'ℹ️', label: 'About' }
-];
+import useAuth from './hooks/useAuth';
+import UsersPage from './pages/UsersPage';
+import OrganisationPage from './pages/OrganisationPage';
+import EmployeesPage from './pages/EmployeesPage';
 
 const WebcamCapture = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { auth, logout } = useAuth();
+  const isSuperAdmin = auth?.role === 'superadmin';
+  const sidebarItems = useMemo(() => {
+    const items = [
+      { id: 'dashboard', icon: '🏠', label: 'Dashboard', route: '/dashboard' },
+      { id: 'attendance', icon: '📸', label: 'Attendance', route: '/attendance' },
+      { id: 'employees', icon: '👥', label: 'Employees', route: '/employees' },
+    ];
+    if (isSuperAdmin) {
+      items.push(
+        { id: 'users', icon: '👤', label: 'Users', route: '/users' },
+        { id: 'organisation', icon: '🏢', label: 'Organisation', route: '/organisation' },
+      );
+    }
+    items.push(
+      { id: 'reports', icon: '📊', label: 'Reports', route: '/reports' },
+      { id: 'about', icon: 'ℹ️', label: 'About', route: '/about' },
+    );
+    return items;
+  }, [isSuperAdmin]);
+
+  const bottomNavItems = useMemo(() => sidebarItems, [sidebarItems]);
+  const [isCompactNav, setIsCompactNav] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 640 : false
+  );
+  const [overflowOpen, setOverflowOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      setIsCompactNav(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isCompactNav && overflowOpen) {
+      setOverflowOpen(false);
+    }
+  }, [isCompactNav, overflowOpen]);
+
   const webcamRef = useRef(null);
   const [toasts, setToasts] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,9 +63,24 @@ const WebcamCapture = () => {
   const [started, setStarted] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stoppedState, setStoppedState] = useState('idle');
+
+  const primaryNavItems = useMemo(() => {
+    if (!isCompactNav) {
+      return bottomNavItems;
+    }
+    const limit = Math.min(3, bottomNavItems.length);
+    return bottomNavItems.slice(0, limit);
+  }, [bottomNavItems, isCompactNav]);
+
+  const overflowNavItems = useMemo(() => {
+    if (!isCompactNav) {
+      return [];
+    }
+    return bottomNavItems.slice(3);
+  }, [bottomNavItems, isCompactNav]);
 
   const isProcessingRef = useRef(false);
   const modelLoadedRef = useRef(false);
@@ -31,43 +88,46 @@ const WebcamCapture = () => {
   const lastToastTimeRef = useRef({});
 
   const removeToast = useCallback((id) => {
-    setToasts(prev => prev.map(toast => 
-      toast.id === id ? { ...toast, exiting: true } : toast
-    ));
+    setToasts((prev) =>
+      prev.map((toast) => (toast.id === id ? { ...toast, exiting: true } : toast))
+    );
     setTimeout(() => {
-      setToasts(prev => prev.filter(toast => toast.id !== id));
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 300);
   }, []);
 
   const dismissAllToasts = useCallback(() => {
-    setToasts(prev => prev.map(toast => ({ ...toast, exiting: true })));
+    setToasts((prev) => prev.map((toast) => ({ ...toast, exiting: true })));
     setTimeout(() => {
       setToasts([]);
     }, 300);
   }, []);
 
-  const showToast = useCallback((type, title, message, key = null, options = {}) => {
-    if (key) {
-      const now = Date.now();
-      if (lastToastTimeRef.current[key] && now - lastToastTimeRef.current[key] < 3000) {
-        return;
+  const showToast = useCallback(
+    (type, title, message, key = null, options = {}) => {
+      if (key) {
+        const now = Date.now();
+        if (lastToastTimeRef.current[key] && now - lastToastTimeRef.current[key] < 3000) {
+          return;
+        }
+        lastToastTimeRef.current[key] = now;
       }
-      lastToastTimeRef.current[key] = now;
-    }
 
-    const id = Date.now();
-    const toast = { id, type, title, message, variant: options.variant, options };
-    setToasts(prev => [...prev, toast]);
-    
-    setTimeout(() => {
-      removeToast(id);
-    }, options.durationMs ?? 3000);
-  }, [removeToast]);
+      const id = Date.now();
+      const toast = { id, type, title, message, variant: options.variant, options };
+      setToasts((prev) => [...prev, toast]);
+
+      setTimeout(() => {
+        removeToast(id);
+      }, options.durationMs ?? 3000);
+    },
+    [removeToast]
+  );
 
   useEffect(() => {
     if (!started || modelLoadedRef.current) return;
     let cancelled = false;
-    
+
     const loadModel = async () => {
       try {
         const loadedModel = await blazeface.load();
@@ -79,7 +139,7 @@ const WebcamCapture = () => {
         console.error('Failed to load model', err);
       }
     };
-    
+
     loadModel();
     return () => {
       cancelled = true;
@@ -100,26 +160,47 @@ const WebcamCapture = () => {
     setFaceDetected(false);
   }, []);
 
-  const stopCameraWith = useCallback((reason) => {
-    try {
-      const stream = webcamRef.current?.video?.srcObject;
-      if (stream && stream.getTracks) {
-        stream.getTracks().forEach((t) => t.stop());
+  const stopCameraWith = useCallback(
+    (reason) => {
+      try {
+        const stream = webcamRef.current?.video?.srcObject;
+        if (stream && stream.getTracks) {
+          stream.getTracks().forEach((t) => t.stop());
+        }
+      } catch (e) {
+        console.warn('Error stopping camera tracks', e);
       }
-    } catch (e) {
-      console.warn('Error stopping camera tracks', e);
-    }
-    setCameraActive(false);
-    faceDetectedRef.current = false;
-    setFaceDetected(false);
-    setStoppedState(reason || 'idle');
-  }, []);
+      setCameraActive(false);
+      faceDetectedRef.current = false;
+      setFaceDetected(false);
+      setStoppedState(reason || 'idle');
+    },
+    []
+  );
 
-  const fetchAttendanceDetails = async (employeeId) => {
+  useEffect(() => {
+    const rawPath = location.pathname === '/' ? '/dashboard' : location.pathname;
+    const matched = sidebarItems.find(
+      (item) => rawPath === item.route || rawPath.startsWith(`${item.route}/`)
+    );
+    if (matched) {
+      setActiveTab(matched.id);
+      if (matched.id !== 'attendance') {
+        if (cameraActive) {
+          stopCamera();
+        }
+        setStarted(false);
+        setStoppedState('idle');
+      }
+      return;
+    }
+  }, [location.pathname, sidebarItems, cameraActive, stopCamera]);
+
+  const fetchAttendanceDetails = async (employeeName) => {
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/attendance-summary/`);
-      const employeeData = response.data.find(record => record.employee === employeeId);
-      return employeeData;
+      const { data } = await getTodayAttendanceSummary();
+      if (!Array.isArray(data)) return null;
+      return data.find((record) => record.employee === employeeName);
     } catch (error) {
       console.error('Error fetching attendance details:', error);
       return null;
@@ -128,51 +209,44 @@ const WebcamCapture = () => {
 
   const captureAndSend = useCallback(async () => {
     if (!webcamRef.current || isProcessingRef.current) return;
-    
+
     const imageSrc = webcamRef.current.getScreenshot();
     if (!imageSrc) return;
 
     isProcessingRef.current = true;
     setIsProcessing(true);
-    
+
     try {
       const blob = await (await fetch(imageSrc)).blob();
       const formData = new FormData();
       formData.append('image', blob, 'face.jpg');
 
-      const response = await axios.post(
-        //'http://127.0.0.1:8000/api/attendance/',
-        //'http://147.93.27.224:8002/api/attendance/',
-        'https://apigatekeeper.cloudgentechnologies.com/api/attendance/',
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
-
+      const response = await markAttendance(formData);
       const data = response.data;
-      console.log("data", data);
-      
+      console.log('data', data);
+
       if (data.status === 'Already marked') {
         const attendanceDetails = await fetchAttendanceDetails(data.employee);
-        const checkinTime = attendanceDetails?.checkin ? 
-          new Date(`2000-01-01 ${attendanceDetails.checkin}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
-          'Not marked';
-        const checkoutTime = attendanceDetails?.checkout ? 
-          new Date(`2000-01-01 ${attendanceDetails.checkout}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
-          'Not marked';
+        const checkinTime = attendanceDetails?.checkin
+          ? new Date(`2000-01-01 ${attendanceDetails.checkin}`).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : 'Not marked';
+        const checkoutTime = attendanceDetails?.checkout
+          ? new Date(`2000-01-01 ${attendanceDetails.checkout}`).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : 'Not marked';
 
         const message = `Hello ${data.employee}!\nYour attendance for today is already recorded:\n\nCheck-in: ${checkinTime}\nCheck-out: ${checkoutTime}`;
-        
-        showToast(
-          'info',
-          'Already Checked In/Out',
-          message,
-          'attendance-already-marked',
-          { 
-            durationMs: 8000, 
-            variant: 'hero',
-            photo: data.photo
-          }
-        );
+
+        showToast('info', 'Already Checked In/Out', message, 'attendance-already-marked', {
+          durationMs: 8000,
+          variant: 'hero',
+          photo: data.photo,
+        });
         stopCameraWith('completed');
         setTimeout(() => {
           setStarted(false);
@@ -184,12 +258,12 @@ const WebcamCapture = () => {
           isCheckin ? 'Check-In Successful' : 'Check-Out Successful',
           data.message,
           'attendance-success',
-          { 
-            durationMs: 6000, 
+          {
+            durationMs: 6000,
             variant: 'hero',
             confidence: data.confidence,
             timestamp: data.timestamp,
-            photo: data.photo
+            photo: data.photo,
           }
         );
         stopCameraWith('completed');
@@ -197,23 +271,17 @@ const WebcamCapture = () => {
           setStarted(false);
         }, 2000);
       } else {
-        showToast(
-          'error',
-          'Unknown Response',
-          'Received unexpected response from server.',
-          'attendance-unknown'
-        );
+        showToast('error', 'Unknown Response', 'Received unexpected response from server.', 'attendance-unknown');
       }
-      
+
       setTimeout(() => {
         isProcessingRef.current = false;
         setIsProcessing(false);
       }, 2000);
-      
     } catch (error) {
       let errMsg = 'Server connection failed';
       let errTitle = 'Connection Error';
-      
+
       if (error.response?.data?.error) {
         switch (error.response.data.error) {
           case 'No face detected':
@@ -229,9 +297,9 @@ const WebcamCapture = () => {
             errMsg = error.response.data.error;
         }
       }
-      
+
       showToast('error', errTitle, errMsg, 'attendance-error', { durationMs: 10000 });
-      
+
       stopCameraWith('error');
       isProcessingRef.current = false;
       setIsProcessing(false);
@@ -264,12 +332,12 @@ const WebcamCapture = () => {
       try {
         const predictions = await model.estimateFaces(webcamRef.current.video, false);
         const detected = predictions && predictions.length > 0;
-        
+
         if (faceDetectedRef.current !== detected) {
           faceDetectedRef.current = detected;
           setFaceDetected(detected);
         }
-        
+
         if (detected && !isProcessingRef.current) {
           captureAndSend();
         }
@@ -283,7 +351,7 @@ const WebcamCapture = () => {
     };
 
     const interval = setInterval(detectFace, 1000);
-    
+
     return () => {
       clearInterval(interval);
     };
@@ -297,9 +365,7 @@ const WebcamCapture = () => {
     setStarted(true);
     setCameraActive(true);
     setActiveTab('attendance');
-    if (window.location.hash !== '#/attendance') {
-      window.location.hash = '#/attendance';
-    }
+    navigate('/attendance');
     setSidebarOpen(false);
   };
 
@@ -314,29 +380,32 @@ const WebcamCapture = () => {
 
   const handleTabChange = (tab) => {
     dismissAllToasts();
-    setActiveTab(tab);
-    if (tab !== 'attendance' && cameraActive) {
-      stopCamera();
+    const item = sidebarItems.find((entry) => entry.id === tab);
+    if (!item) {
+      return;
     }
-    const target = tab === 'home' ? '#/' : `#/${tab}`;
-    if (window.location.hash !== target) {
-      window.location.hash = target;
+
+    if (tab !== 'attendance') {
+      if (cameraActive) {
+        stopCamera();
+      }
+      setStarted(false);
+      setStoppedState('idle');
+    }
+
+    setActiveTab(tab);
+    if (tab === 'reports') {
+      navigate('/reports/today');
+    } else {
+      navigate(item.route);
     }
     setSidebarOpen(false);
+    setOverflowOpen(false);
   };
 
-  useEffect(() => {
-    const applyFromHash = () => {
-      const hash = window.location.hash || '#/';
-      const path = hash.replace(/^#\//, '');
-      const tab = path === '' ? 'home' : path;
-      if (tab !== activeTab) setActiveTab(tab);
-      if (tab !== 'attendance' && cameraActive) stopCamera();
-    };
-    applyFromHash();
-    window.addEventListener('hashchange', applyFromHash);
-    return () => window.removeEventListener('hashchange', applyFromHash);
-  }, [activeTab, cameraActive, stopCamera]);
+  const handleOverflowSelect = (tab) => {
+    handleTabChange(tab);
+  };
 
   return (
     <div className="app-shell">
@@ -345,7 +414,7 @@ const WebcamCapture = () => {
           <div className="sidebar-brand">
             <div className="sidebar-icon">👤</div>
             <div className="sidebar-brand-text">
-              <h2 className="sidebar-title">FaceRec</h2>
+              <h2 className="sidebar-title">True Face</h2>
               <span className="sidebar-subtitle">Attendance Suite</span>
             </div>
           </div>
@@ -354,7 +423,7 @@ const WebcamCapture = () => {
           </button>
         </div>
         <nav className="sidebar-nav">
-          {menuItems.map(item => (
+          {sidebarItems.map((item) => (
             <button
               key={item.id}
               className={`sidebar-menu-item ${activeTab === item.id ? 'active' : ''}`}
@@ -365,20 +434,34 @@ const WebcamCapture = () => {
             </button>
           ))}
         </nav>
+        {auth && (
+          <div className="sidebar-footer">
+            <div className="sidebar-user">
+              <div className="sidebar-user-icon">👤</div>
+              <div className="sidebar-user-details">
+                <span className="sidebar-user-name">{auth.name || auth.email}</span>
+                <span className="sidebar-user-role">{auth.role}</span>
+              </div>
+            </div>
+            <button className="sidebar-logout" onClick={() => { logout(); setSidebarOpen(false); }}>
+              Logout
+            </button>
+          </div>
+        )}
       </aside>
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <div className="main-wrapper">
         <main className="main-content">
-          {activeTab === 'home' && (
+          {activeTab === 'dashboard' && (
             <div className="home-screen">
               <div className="home-hero">
                 <div className="hero-icon-wrapper">
                   <div className="hero-icon">👤</div>
                   <div className="icon-ring"></div>
                 </div>
-                <h1 className="hero-title">Welcome to FaceRec Attendance</h1>
+                <h1 className="hero-title">Welcome to True Face Attendance</h1>
                 <p className="hero-subtitle">
                   Advanced facial recognition technology for seamless attendance management
                 </p>
@@ -448,14 +531,14 @@ const WebcamCapture = () => {
                           facingMode: 'user',
                           width: { min: 320, ideal: 1920, max: 2560 },
                           height: { min: 240, ideal: 1080, max: 1440 },
-                          aspectRatio: 16/9
+                          aspectRatio: 16 / 9,
                         }}
                         style={{
                           width: '100%',
                           height: '100%',
                           maxHeight: '100vh',
                           objectFit: 'contain',
-                          backgroundColor: '#000'
+                          backgroundColor: '#000',
                         }}
                       />
 
@@ -479,10 +562,16 @@ const WebcamCapture = () => {
                       <div className="stopped-card">
                         <div className="stopped-icon">{stoppedState === 'error' ? '⚠️' : '✓'}</div>
                         <h2 className="stopped-title">
-                          {stoppedState === 'error' ? 'Let\'s Try Again' : stoppedState === 'cancelled' ? 'Camera Stopped' : stoppedState === 'retry' ? 'Ready to Continue' : 'Capture Complete'}
+                          {stoppedState === 'error'
+                            ? "Let's Try Again"
+                            : stoppedState === 'cancelled'
+                              ? 'Camera Stopped'
+                              : stoppedState === 'retry'
+                                ? 'Ready to Continue'
+                                : 'Capture Complete'}
                         </h2>
                         <p className="stopped-description">
-                          {stoppedState === 'error' 
+                          {stoppedState === 'error'
                             ? 'We could not confirm your face. Ensure good lighting and keep your face centered.'
                             : stoppedState === 'cancelled'
                               ? 'You can resume anytime. Click below to try again.'
@@ -509,24 +598,37 @@ const WebcamCapture = () => {
             </div>
           )}
 
+          {activeTab === 'employees' && (
+            <EmployeesPage onNotify={showToast} isSuperAdmin={isSuperAdmin} auth={auth} />
+          )}
+
+          {isSuperAdmin && activeTab === 'users' && (
+            <UsersPage onNotify={showToast} isSuperAdmin={isSuperAdmin} />
+          )}
+
+          {isSuperAdmin && activeTab === 'organisation' && (
+            <OrganisationPage onNotify={showToast} />
+          )}
+
           {activeTab === 'reports' && (
-            <DashboardReports />
+            <div className="reports-embedded">
+              <DashboardReports />
+            </div>
           )}
 
           {activeTab === 'about' && (
             <div className="about-screen">
               <div className="about-content">
                 <div className="about-header">
-                  <h2 className="about-title">About FaceRec Attendance</h2>
-                  {/* <p className="about-subtitle">Version 1.0.0</p> */}
+                  <h2 className="about-title">About True Face Attendance</h2>
                 </div>
 
                 <div className="about-section">
                   <h3 className="section-title">How It Works</h3>
                   <p className="section-text">
-                    FaceRec Attendance uses advanced facial recognition technology powered by TensorFlow.js
-                    and BlazeFace models to identify and verify individuals. The system captures your face,
-                    processes it securely, and marks your attendance automatically.
+                    True Face Attendance uses advanced facial recognition technology powered by TensorFlow.js and
+                    BlazeFace models to identify and verify individuals. The system captures your face, processes it
+                    securely, and marks your attendance automatically.
                   </p>
                 </div>
 
@@ -543,8 +645,8 @@ const WebcamCapture = () => {
                 <div className="about-section">
                   <h3 className="section-title">Privacy & Security</h3>
                   <p className="section-text">
-                    Your facial data is processed locally in your browser and sent securely to our servers
-                    only for verification purposes. We prioritize privacy and enterprise-grade security.
+                    Your facial data is processed locally in your browser and sent securely to our servers only for
+                    verification purposes. We prioritize privacy and enterprise-grade security.
                   </p>
                 </div>
 
@@ -559,7 +661,8 @@ const WebcamCapture = () => {
                     </div>
                     <div className="company-address">
                       <p>
-                        Plot #16, Arun Hi-Tech City<br />
+                        Plot #16, Arun Hi-Tech City
+                        <br />
                         Surya Nagar, Madurai, Tamil Nadu
                       </p>
                     </div>
@@ -601,7 +704,7 @@ const WebcamCapture = () => {
                 </div>
 
                 <div className="about-footer">
-                  <p className="footer-text">© 2024 CloudGen Technologies • Crafted for modern teams</p>
+                  <p className="footer-text">© {new Date().getFullYear()} CloudGen Technologies • Crafted for modern teams</p>
                 </div>
               </div>
             </div>
@@ -609,8 +712,8 @@ const WebcamCapture = () => {
         </main>
       </div>
 
-      <div className="bottom-tab-navigation">
-        {menuItems.map(item => (
+      <div className={`bottom-tab-navigation ${isCompactNav ? 'compact' : ''}`}>
+        {primaryNavItems.map((item) => (
           <button
             key={item.id}
             className={`bottom-tab-button ${activeTab === item.id ? 'active' : ''}`}
@@ -620,56 +723,55 @@ const WebcamCapture = () => {
             <span className="bottom-tab-label">{item.label}</span>
           </button>
         ))}
-      </div>
-
-      <div className="toast-container">
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            className={`toast ${toast.type} ${toast.variant || ''} ${toast.exiting ? 'toast-exit' : ''}`}
-          >
-            <div className="toast-icon">
-              {toast.type === 'success' && '✓'}
-              {toast.type === 'error' && '✕'}
-              {toast.type === 'info' && 'i'}
-            </div>
-            <div className="toast-content">
-              <div className="toast-header">
-                {toast.options?.photo && (
-                  <div className="toast-photo">
-                    <img src={toast.options.photo} alt="Employee" />
+        {isCompactNav && overflowNavItems.length > 0 && (
+          <div className="bottom-more-wrapper">
+            <button
+              className={`bottom-tab-button more-button ${overflowOpen ? 'active' : ''}`}
+              onClick={() => setOverflowOpen((prev) => !prev)}
+            >
+              <span className="bottom-tab-icon">⋯</span>
+              <span className="bottom-tab-label">More</span>
+            </button>
+            {overflowOpen && (
+              <div className="bottom-more-menu">
+                {auth && (
+                  <div className="bottom-more-user">
+                    <div className="bottom-user-icon">👤</div>
+                    <div className="bottom-user-details">
+                      <span className="bottom-user-name">{auth.name || auth.email}</span>
+                      <span className="bottom-user-role">{auth.role}</span>
+                    </div>
+                    <button
+                      className="bottom-user-logout"
+                      onClick={() => {
+                        logout();
+                        setOverflowOpen(false);
+                      }}
+                    >
+                      Logout
+                    </button>
                   </div>
                 )}
-                <div>
-                  <div className="toast-title">{toast.title}</div>
-                  <div className="toast-message">{toast.message}</div>
-                </div>
+                {overflowNavItems.map((item) => (
+                  <button
+                    key={item.id}
+                    className={`bottom-more-item ${activeTab === item.id ? 'active' : ''}`}
+                    onClick={() => handleOverflowSelect(item.id)}
+                  >
+                    <span className="bottom-tab-icon">{item.icon}</span>
+                    <span className="bottom-tab-label">{item.label}</span>
+                  </button>
+                ))}
               </div>
-              {(toast.options?.confidence || toast.options?.timestamp || toast.options?.times) && (
-                <div className="toast-details">
-                  {toast.options.confidence && (
-                    <div className="toast-confidence">
-                      Match Confidence: {(toast.options.confidence * 100).toFixed(0)}%
-                    </div>
-                  )}
-                  {toast.options.timestamp && toast.type !== 'info' && (
-                    <div className="toast-timestamp">
-                      {new Date(toast.options.timestamp).toLocaleTimeString()}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <button
-              className="toast-close"
-              onClick={() => removeToast(toast.id)}
-              aria-label="Close"
-            >
-              ✕
-            </button>
+            )}
           </div>
-        ))}
+        )}
       </div>
+
+      {isCompactNav && overflowOpen && (
+        <div className="bottom-more-overlay" onClick={() => setOverflowOpen(false)} />
+      )}
+
     </div>
   );
 };
