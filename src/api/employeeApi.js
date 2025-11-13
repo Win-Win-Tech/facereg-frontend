@@ -3,6 +3,9 @@ import httpClient from './httpClient';
 export const getEmployees = (params) =>
   httpClient.get('/employees/', { params });
 
+export const getEmployeeById = (id) =>
+  httpClient.get(`/employees/${id}/`);
+
 export const registerEmployee = (formData) =>
   httpClient.post('/register/', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

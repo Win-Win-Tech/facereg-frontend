@@ -131,7 +131,7 @@ const DashboardReports = () => {
       return;
     }
     if (withSpinner) {
-      setPayrollLoading(true);
+    setPayrollLoading(true);
     }
     setPayrollError(null);
     try {
@@ -142,14 +142,14 @@ const DashboardReports = () => {
       else if (Array.isArray(res.data?.payroll)) rows = res.data.payroll;
       setPayrollData(rows);
       setPayrollStatus(null);
-      setPayrollExportUrl(null);
+          setPayrollExportUrl(null);
     } catch (error) {
       console.warn('Failed to load payroll', error?.response?.data || error.message);
       setPayrollError('Failed to load payroll data');
       setPayrollData([]);
     } finally {
       if (withSpinner) {
-        setPayrollLoading(false);
+      setPayrollLoading(false);
       }
     }
   };
@@ -305,105 +305,86 @@ const DashboardReports = () => {
     }
   };
 
-  const renderMonthlyCards = () => {
+  const monthlyDateColumns = useMemo(() => {
+    if (!Array.isArray(filteredMonthlyData) || filteredMonthlyData.length === 0) {
+      return [];
+    }
+    const [year, monthNumber] = month.split('-').map(Number);
+    const keys = new Set();
+    filteredMonthlyData.forEach((employee) => {
+      Object.keys(employee)
+        .filter((key) => key !== 'name')
+        .forEach((key) => keys.add(key));
+    });
+    return Array.from(keys)
+      .map((key) => {
+        const parsed = parseDateKey(key, year, monthNumber);
+        return {
+          key,
+          sortValue: parsed ? parsed.getTime() : Number.MAX_SAFE_INTEGER,
+          label: parsed ? String(parsed.getDate()).padStart(2, '0') : key,
+        };
+      })
+      .sort((a, b) => a.sortValue - b.sortValue);
+  }, [filteredMonthlyData, month]);
+
+  const renderMonthlyTable = () => {
     if (!Array.isArray(filteredMonthlyData) || filteredMonthlyData.length === 0) {
       return <div className="no-data">No monthly data for selected filters.</div>;
     }
 
-    const [year, monthNumber] = month.split('-').map(Number);
-
-    const processEmployeeData = (employee) => {
-      const dateKeys = Object.keys(employee).filter((k) => k !== 'name');
-      const presentDates = [];
-      const absentDates = [];
-
-      const lastDay = new Date(year, monthNumber, 0).getDate();
-      const allDates = Array.from({ length: lastDay }, (_, i) => i + 1);
-
-      allDates.forEach((day) => {
-        const dateKey = dateKeys.find((key) => {
-          const parsed = parseDateKey(key, year, monthNumber);
-          return parsed && parsed.getDate() === day;
-        });
-
-        if (dateKey) {
-          const status = employee[dateKey];
-          if (status === 'P') {
-            presentDates.push(day);
-          } else if (status === 'A') {
-            absentDates.push(day);
-          }
-        }
+    const getCounts = (employee) => {
+      let present = 0;
+      let absent = 0;
+      monthlyDateColumns.forEach((column) => {
+        const value = employee[column.key];
+        if (value === 'P') present += 1;
+        if (value === 'A') absent += 1;
       });
-
-      return { presentDates, absentDates };
+      return { present, absent };
     };
 
     return (
-      <div className="attendance-cards-container">
-        <div className="attendance-cards-grid">
-          {filteredMonthlyData.map((employee, index) => {
-            const { presentDates, absentDates } = processEmployeeData(employee);
-            return (
-              <div key={employee.name || index} className="attendance-card">
-                <div className="attendance-card-header">
-                  <div className="attendance-card-name-section">
-                    <h5 className="attendance-card-name">{employee.name}</h5>
-                  </div>
-                </div>
-                <div className="attendance-card-stats">
-                  <div className="stat-item present-stat">
-                    <span className="stat-icon">✓</span>
-                    <div className="stat-content">
-                      <span className="stat-value">{presentDates.length}</span>
-                      <span className="stat-label">Present</span>
-                    </div>
-                  </div>
-                  <div className="stat-item absent-stat">
-                    <span className="stat-icon">✕</span>
-                    <div className="stat-content">
-                      <span className="stat-value">{absentDates.length}</span>
-                      <span className="stat-label">Absent</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="attendance-card-details">
-                  {presentDates.length > 0 && (
-                    <div className="attendance-detail-section">
-                      <div className="detail-section-header">
-                        <span className="detail-section-title present-title">Present Days</span>
-                        <span className="detail-count">({presentDates.length})</span>
-                      </div>
-                      <div className="detail-dates">
-                        {presentDates.map((day) => (
-                          <span key={day} className="date-badge present-badge">
-                            {day}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {absentDates.length > 0 && (
-                    <div className="attendance-detail-section">
-                      <div className="detail-section-header">
-                        <span className="detail-section-title absent-title">Absent Days</span>
-                        <span className="detail-count">({absentDates.length})</span>
-                      </div>
-                      <div className="detail-dates">
-                        {absentDates.map((day) => (
-                          <span key={day} className="date-badge absent-badge">
-                            {day}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <table className="summary-table monthly-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Present Days</th>
+                <th>Absent Days</th>
+                {monthlyDateColumns.map((column) => (
+                  <th key={column.key}>{column.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredMonthlyData.map((employee, index) => {
+                const { present, absent } = getCounts(employee);
+                return (
+                  <tr key={employee.name || index}>
+                    <td data-label="Employee">
+                      <div className="employee-name">{employee.name || '—'}</div>
+                    </td>
+                    <td data-label="Present">{present}</td>
+                    <td data-label="Absent">{absent}</td>
+                    {monthlyDateColumns.map((column) => {
+                      const value = employee[column.key] || '—';
+                      const statusClass =
+                        value === 'P'
+                          ? 'status-pill present'
+                          : value === 'A'
+                          ? 'status-pill absent'
+                          : 'status-pill neutral';
+                      return (
+                        <td key={column.key} data-label={column.label}>
+                          <span className={statusClass}>{value}</span>
+                  </td>
+                      );
+                    })}
+                </tr>
+                );
+              })}
+            </tbody>
+          </table>
     );
   };
 
@@ -439,8 +420,8 @@ const DashboardReports = () => {
                       <span className="btn-icon">🔄</span>
                       {todayLoading ? 'Refreshing…' : 'Refresh'}
                     </button>
-                    <button
-                      className="btn-export btn-compact"
+                    <button 
+                      className="btn-export btn-compact" 
                       onClick={exportToday}
                       disabled={todayExportLoading || todayData.length === 0}
                     >
@@ -455,7 +436,8 @@ const DashboardReports = () => {
                   <div className="summary-error">{todayError}</div>
                 ) : (
                   <div className="table-content-wrapper">
-                    <div className="summary-table-wrapper limited">
+                  <div className="summary-table-wrapper limited">
+                    <div className="summary-table-container">
                       <table className="summary-table">
                         <thead>
                           <tr>
@@ -489,24 +471,25 @@ const DashboardReports = () => {
                         </tbody>
                       </table>
                     </div>
+                    </div>
                   </div>
                 )}
               </section>
             )}
 
-            {tab === 'monthly' && (
-              <section className="report-section">
-                <div className="report-controls-compact">
-                  <div className="filter-group-compact">
-                    <label className="filter-label-compact">
-                      <span>Month:</span>
-                      <input
-                        type="month"
-                        value={month}
+          {tab === 'monthly' && (
+            <section className="report-section">
+              <div className="report-controls-compact">
+                <div className="filter-group-compact">
+                  <label className="filter-label-compact">
+                    <span>Month:</span>
+                    <input 
+                      type="month" 
+                      value={month} 
                         onChange={(e) => setMonth(e.target.value)}
-                        className="filter-input-compact"
-                      />
-                    </label>
+                      className="filter-input-compact"
+                    />
+                  </label>
                     <label className="filter-label-compact">
                       <span>Employee:</span>
                       <select
@@ -537,41 +520,45 @@ const DashboardReports = () => {
                         <option value="absent">Absent</option>
                       </select>
                     </label>
-                    <button
-                      className="btn-export btn-compact"
+                       <button 
+                    className="btn-export btn-compact" 
                       onClick={() => exportMonthly(month)}
                       disabled={monthlyExportLoading || filteredMonthlyData.length === 0}
-                    >
-                      <span className="btn-icon">📥</span>
+                  >
+                    <span className="btn-icon">📥</span>
                       {monthlyExportLoading ? 'Exporting…' : 'Export'}
-                    </button>
+                  </button>
+                </div>
+              </div>
+              {monthlyLoading ? (
+                <div className="summary-loading">Loading monthly attendance…</div>
+              ) : monthlyError ? (
+                <div className="summary-error">{monthlyError}</div>
+              ) : (
+                <div className="table-content-wrapper">
+                  <div className="summary-table-wrapper limited">
+                    <div className="summary-table-container">
+                      {renderMonthlyTable()}
+                    </div>
                   </div>
                 </div>
-                {monthlyLoading ? (
-                  <div className="summary-loading">Loading monthly attendance…</div>
-                ) : monthlyError ? (
-                  <div className="summary-error">{monthlyError}</div>
-                ) : (
-                  <div className="attendance-cards-scroll-container limited">
-                    {renderMonthlyCards()}
-                  </div>
-                )}
-              </section>
-            )}
+              )}
+            </section>
+          )}
 
-            {tab === 'payroll' && (
-              <section className="report-section">
-                <div className="report-controls-compact">
-                  <div className="filter-group-compact">
-                    <label className="filter-label-compact">
-                      <span>Month:</span>
-                      <input
-                        type="month"
+          {tab === 'payroll' && (
+            <section className="report-section">
+              <div className="report-controls-compact">
+                <div className="filter-group-compact">
+                  <label className="filter-label-compact">
+                    <span>Month:</span>
+                    <input 
+                      type="month" 
                         value={payrollMonth}
                         onChange={(e) => setPayrollMonth(e.target.value)}
-                        className="filter-input-compact"
-                      />
-                    </label>
+                      className="filter-input-compact"
+                    />
+                  </label>
                     <button
                       className="btn-secondary btn-compact"
                       onClick={() => loadPayroll(payrollMonth)}
@@ -580,30 +567,30 @@ const DashboardReports = () => {
                       <span className="btn-icon">🔄</span>
                       {payrollLoading ? 'Refreshing…' : 'Refresh'}
                     </button>
-                    <button
-                      className="btn-primary btn-compact"
+                  <button 
+                    className="btn-primary btn-compact" 
                       onClick={() => handleGeneratePayroll(payrollMonth)}
                       disabled={payrollLoading || !payrollMonth}
-                    >
+                  >
                       <span className="btn-icon">⚙️</span>
                       {payrollLoading ? 'Processing…' : 'Generate'}
-                    </button>
-                    <button
-                      className="btn-export btn-compact"
+                  </button>
+                  <button 
+                    className="btn-export btn-compact" 
                       onClick={() => handleExportPayroll(payrollMonth)}
                       disabled={payrollExportLoading || payrollData.length === 0 || !payrollMonth}
-                    >
-                      <span className="btn-icon">📥</span>
+                  >
+                    <span className="btn-icon">📥</span>
                       {payrollExportLoading ? 'Exporting…' : 'Export'}
-                    </button>
-                  </div>
+                  </button>
                 </div>
+              </div>
                 {payrollStatus && <div className="summary-status">{payrollStatus}</div>}
                 {payrollError && <div className="summary-error">{payrollError}</div>}
                 {payrollLoading && payrollData.length === 0 ? (
                   <div className="summary-loading">Loading payroll…</div>
                 ) : (
-                  <div className="table-content-wrapper">
+              <div className="table-content-wrapper">
                     <div className="summary-table-wrapper limited">
                       <table className="summary-table payroll-table">
                         <thead>
@@ -645,10 +632,10 @@ const DashboardReports = () => {
                 {payrollExportUrl && (
                   <div className="summary-status subtle">
                     Latest export: <a href={payrollExportUrl} target="_blank" rel="noopener noreferrer">Download</a>
-                  </div>
+              </div>
                 )}
-              </section>
-            )}
+            </section>
+          )}
           </div>
         </div>
       </div>

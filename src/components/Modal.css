@@ -80,3 +80,33 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+@media (max-width: 720px) {
+  .modal-backdrop {
+    align-items: flex-start;
+    padding: 12px 12px calc(12px + 84px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+
+  .modal-window {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    border-radius: 1.15rem;
+    padding: 0.75rem;
+    max-height: calc(100vh - 72px - env(safe-area-inset-bottom) - 20px);
+  }
+
+  .modal-body {
+    max-height: none;
+    padding: 1.1rem 1.25rem 1rem;
+  }
+
+  .modal-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .modal-footer {
+    padding: 0.75rem 1.25rem 1.1rem;
+  }
+}

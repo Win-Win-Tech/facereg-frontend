@@ -378,7 +378,7 @@ const WebcamCapture = () => {
     setStoppedState('idle');
   }, [dismissAllToasts]);
 
-  const handleTabChange = (tab) => {
+  const handleTabChange = useCallback((tab) => {
     dismissAllToasts();
     const item = sidebarItems.find((entry) => entry.id === tab);
     if (!item) {
@@ -401,11 +401,24 @@ const WebcamCapture = () => {
     }
     setSidebarOpen(false);
     setOverflowOpen(false);
-  };
+  }, [dismissAllToasts, sidebarItems, cameraActive, stopCamera, navigate, setSidebarOpen, setOverflowOpen]);
 
-  const handleOverflowSelect = (tab) => {
-    handleTabChange(tab);
-  };
+  const handleOverflowSelect = useCallback(
+    (tab) => {
+      handleTabChange(tab);
+    },
+    [handleTabChange]
+  );
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+    } finally {
+      setSidebarOpen(false);
+      setOverflowOpen(false);
+      navigate('/login', { replace: true });
+    }
+  }, [logout, navigate, setSidebarOpen, setOverflowOpen]);
 
   return (
     <div className="app-shell">
@@ -418,7 +431,12 @@ const WebcamCapture = () => {
               <span className="sidebar-subtitle">Attendance Suite</span>
             </div>
           </div>
-          <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+          >
             ✕
           </button>
         </div>
@@ -426,6 +444,7 @@ const WebcamCapture = () => {
           {sidebarItems.map((item) => (
             <button
               key={item.id}
+              type="button"
               className={`sidebar-menu-item ${activeTab === item.id ? 'active' : ''}`}
               onClick={() => handleTabChange(item.id)}
             >
@@ -443,7 +462,7 @@ const WebcamCapture = () => {
                 <span className="sidebar-user-role">{auth.role}</span>
               </div>
             </div>
-            <button className="sidebar-logout" onClick={() => { logout(); setSidebarOpen(false); }}>
+            <button type="button" className="sidebar-logout" onClick={handleLogout}>
               Logout
             </button>
           </div>
@@ -716,6 +735,7 @@ const WebcamCapture = () => {
         {primaryNavItems.map((item) => (
           <button
             key={item.id}
+            type="button"
             className={`bottom-tab-button ${activeTab === item.id ? 'active' : ''}`}
             onClick={() => handleTabChange(item.id)}
           >
@@ -726,6 +746,7 @@ const WebcamCapture = () => {
         {isCompactNav && overflowNavItems.length > 0 && (
           <div className="bottom-more-wrapper">
             <button
+              type="button"
               className={`bottom-tab-button more-button ${overflowOpen ? 'active' : ''}`}
               onClick={() => setOverflowOpen((prev) => !prev)}
             >
@@ -742,11 +763,9 @@ const WebcamCapture = () => {
                       <span className="bottom-user-role">{auth.role}</span>
                     </div>
                     <button
+                      type="button"
                       className="bottom-user-logout"
-                      onClick={() => {
-                        logout();
-                        setOverflowOpen(false);
-                      }}
+                      onClick={handleLogout}
                     >
                       Logout
                     </button>
@@ -755,6 +774,7 @@ const WebcamCapture = () => {
                 {overflowNavItems.map((item) => (
                   <button
                     key={item.id}
+                    type="button"
                     className={`bottom-more-item ${activeTab === item.id ? 'active' : ''}`}
                     onClick={() => handleOverflowSelect(item.id)}
                   >

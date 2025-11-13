@@ -2,7 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Modal from '../components/Modal';
 import './ManagementPages.css';
 import Webcam from 'react-webcam';
-import { getEmployees, registerEmployee, updateEmployee, deleteEmployee } from '../api/employeeApi';
+import {
+  getEmployees,
+  getEmployeeById,
+  registerEmployee,
+  updateEmployee,
+  deleteEmployee,
+} from '../api/employeeApi';
 import { getLocations } from '../api/locationApi';
 
 const dataURLtoFile = (dataUrl, filename) => {
@@ -35,6 +41,7 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [filterLocation, setFilterLocation] = useState('');
+  const [modalLoading, setModalLoading] = useState(false);
   const webcamRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [facePreview, setFacePreview] = useState(null);
@@ -121,6 +128,7 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
       setProfilePreview(null);
       setOriginalFacePreview(null);
       setOriginalProfilePreview(null);
+      setModalLoading(false);
     }
   }, [showModal]);
 
@@ -200,6 +208,7 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
   }, [employees, filterLocation, isSuperAdmin, userLocationId]);
 
   const openCreateModal = () => {
+    setModalLoading(false);
     setForm({
       id: null,
       name: '',
@@ -217,7 +226,11 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     setOriginalProfilePreview(null);
   };
 
-  const openEditModal = (employee) => {
+  const openEditModal = async (employee) => {
+    setErrors({});
+    setModalMode('edit');
+    setShowCamera(false);
+    setModalLoading(true);
     setForm({
       id: employee.id,
       name: employee.name || '',
@@ -225,15 +238,39 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
       faceImage: null,
       profilePhoto: null,
     });
-    setErrors({});
-    setModalMode('edit');
-    setShowModal(true);
-    setShowCamera(false);
-    const existingPhoto = employee.photo_data || null;
     setFacePreview(null);
-    setOriginalFacePreview(existingPhoto);
-    setProfilePreview(existingPhoto);
-    setOriginalProfilePreview(existingPhoto);
+    setProfilePreview(null);
+    setOriginalFacePreview(null);
+    setOriginalProfilePreview(null);
+    setShowModal(true);
+
+    try {
+      const res = await getEmployeeById(employee.id);
+      const detail = res.data || {};
+      setForm({
+        id: detail.id,
+        name: detail.name || '',
+        location_id: detail.location_id ? String(detail.location_id) : '',
+        faceImage: null,
+        profilePhoto: null,
+      });
+      const existingPhoto = detail.photo_data || null;
+      setFacePreview(null);
+      setOriginalFacePreview(existingPhoto);
+      setProfilePreview(existingPhoto);
+      setOriginalProfilePreview(existingPhoto);
+    } catch (error) {
+      setShowModal(false);
+      onNotify?.(
+        'error',
+        'Employees',
+        'Failed to load employee details.',
+        undefined,
+        { durationMs: 5000 }
+      );
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   const validate = () => {
@@ -343,7 +380,7 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
             </div>
           )}
           <button type="button" onClick={openCreateModal}>
-            + Register employee
+            + Register
           </button>
         </div>
       </div>
@@ -397,13 +434,16 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
               <button type="button" className="secondary" onClick={() => setShowModal(false)}>
                 Cancel
               </button>
-              <button type="submit" form="employee-form" disabled={submitting}>
+              <button type="submit" form="employee-form" disabled={submitting || modalLoading}>
                 {submitting ? 'Saving…' : 'Save'}
               </button>
             </>
           }
         >
-          <form id="employee-form" className="management-form" onSubmit={handleSubmit}>
+          {modalLoading ? (
+            <div className="management-empty">Loading employee…</div>
+          ) : (
+            <form id="employee-form" className="management-form" onSubmit={handleSubmit}>
             <label>
               Name
               <input
@@ -504,7 +544,8 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
             </div>
             {errors.profile_photo && <div className="form-error">{errors.profile_photo}</div>}
 
-          </form>
+            </form>
+          )}
         </Modal>
       )}
     </div>

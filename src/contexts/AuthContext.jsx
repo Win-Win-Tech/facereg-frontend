@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import { clearAuthData, getAuthData, setAuthData } from '../utils/session';
+import { logout as logoutApi } from '../api/authApi';
 
 const AuthContext = createContext(null);
 
@@ -11,9 +12,15 @@ export const AuthProvider = ({ children }) => {
     setAuth(data);
   };
 
-  const logout = () => {
-    clearAuthData();
-    setAuth(null);
+  const logout = async () => {
+    try {
+      await logoutApi();
+    } catch (error) {
+      // Ignore network failures so the local session still clears.
+    } finally {
+      clearAuthData();
+      setAuth(null);
+    }
   };
 
   const value = useMemo(
