@@ -1,0 +1,328 @@
+.management-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.management-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.management-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.management-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.management-actions select,
+.management-actions input,
+.management-actions button {
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+}
+
+.management-actions button {
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.management-actions button.secondary {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  border: 1px solid rgba(37, 99, 235, 0.15);
+}
+
+.management-actions button.danger {
+  background: #ef4444;
+}
+
+.management-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.management-card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  max-height: 100%;
+}
+
+.management-card-scroll {
+  overflow: hidden;
+}
+
+.management-table-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 420px;
+}
+
+.management-table-wrapper.limited {
+  max-height: min(360px, calc(100vh - 260px));
+}
+
+.management-table-wrapper.mobile-auto {
+  max-height: min(360px, calc(100vh - 260px));
+}
+
+.management-table-wrapper {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.management-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.management-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  text-align: left;
+  padding: 0.75rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.management-table tbody td {
+  padding: 0.75rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.management-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.management-table .actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.management-table .actions button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.6rem;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.management-table .actions button.edit {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.management-table .actions button.delete {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.location-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+}
+
+.location-chip .chip-icon {
+  font-size: 1.1rem;
+}
+
+.location-chip .chip-text {
+  line-height: 1;
+}
+
+.face-capture-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.face-capture-label {
+  font-weight: 500;
+  color: #475569;
+}
+
+.face-capture-preview {
+  position: relative;
+  width: 100%;
+  min-height: 180px;
+  border-radius: 0.75rem;
+  background: #0f172a;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.face-capture-preview img,
+.face-capture-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.face-placeholder {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.95rem;
+}
+
+.face-capture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.face-capture-actions button {
+  padding: 0.55rem 0.95rem;
+  border-radius: 0.75rem;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+.face-capture-actions button.secondary {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.face-note {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.profile-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 160px;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.profile-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.management-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #64748b;
+}
+
+.management-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.management-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.management-form input,
+.management-form select,
+.management-form textarea {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.management-form input:focus,
+.management-form select:focus,
+.management-form textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.form-error {
+  color: #dc2626;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .management-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .management-actions {
+    flex-wrap: wrap;
+  }
+
+  .management-table {
+    min-width: 520px;
+  }
+}
+
+@media (max-width: 576px) {
+  .management-card {
+    border-radius: 24px;
+    padding: 16px;
+  }
+
+  .management-card-scroll {
+    width: 90vw;
+    margin: 0 auto;
+  }
+
+  .management-table-wrapper,
+  .management-table-wrapper.mobile-auto {
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+
+  .management-table {
+    min-width: 600px;
+  }
+}

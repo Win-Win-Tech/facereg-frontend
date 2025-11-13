@@ -31,10 +31,12 @@
   height: calc(100vh - 50px);
   display: flex;
   flex-direction: column;
+
+  min-height: 0;
   overflow: hidden;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
 }
 
 /* Professional Tab UI */
@@ -48,6 +50,34 @@
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
   flex-shrink: 0;
   z-index: 5;
+}
+
+.location-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+}
+
+.location-chip .chip-icon {
+  font-size: 1.1rem;
+}
+
+.location-chip .chip-text {
+  line-height: 1;
+}
+
+.reports-location-chip {
+  margin: 12px 16px 0;
+  display: inline-flex;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
 }
 
 .tab-button {
@@ -138,7 +168,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
 }
 
@@ -146,8 +176,10 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: auto;
   min-height: 0;
+  width: 100%;
 }
 
 .report-section h3 {
@@ -517,13 +549,13 @@
 /* Tables */
 .summary-table-wrapper {
   border-radius: 16px;
-  overflow: hidden;
   box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
   border: 1px solid rgba(148, 163, 184, 0.15);
   max-height: 600px;
-  overflow-y: auto;
+  overflow: hidden;
   position: relative;
   background: white;
+  width: 100%;
 }
 
 .summary-table-wrapper::-webkit-scrollbar {
@@ -543,6 +575,12 @@
 
 .summary-table-wrapper::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.6);
+}
+
+.summary-table-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: inherit;
 }
 
 .summary-table {
@@ -575,6 +613,55 @@
   white-space: nowrap;
 }
 
+.monthly-table {
+  min-width: 900px;
+}
+
+.monthly-table th:first-child,
+.monthly-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: white;
+  box-shadow: 2px 0 8px rgba(15, 23, 42, 0.05);
+  z-index: 5;
+}
+
+.monthly-table th:first-child {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  z-index: 100;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-pill.present {
+  background: rgba(5, 150, 105, 0.15);
+  color: #047857;
+  border: 1px solid rgba(5, 150, 105, 0.2);
+}
+
+.status-pill.absent {
+  background: rgba(220, 38, 38, 0.15);
+  color: #b91c1c;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.status-pill.neutral {
+  background: rgba(148, 163, 184, 0.15);
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
 .summary-table tbody tr {
   transition: all 0.15s ease;
 }
@@ -583,6 +670,10 @@
   background: linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
   transform: scale(1.001);
   box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04);
+}
+
+.summary-table tbody tr:hover td:first-child {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
 }
 
 .summary-table tbody tr:last-child td {
@@ -623,6 +714,22 @@
   background: rgba(254,242,242,0.8);
 }
 
+.summary-status {
+  margin: 12px 0;
+  padding: 14px 18px;
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  color: #1d4ed8;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.summary-status.subtle {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #475569;
+}
+
 .no-data {
   flex: 1;
   display: flex;
@@ -637,12 +744,19 @@
 @media (max-width: 1024px) {
   .reports-container {
     padding: 0 16px;
+    height: auto;
+    width: 90vw;
+    min-height: calc(100vh - 120px);
   }
   
   .reports-tab-panel {
     padding: 24px;
     overflow-y: auto;
     max-height: calc(100vh - 140px);
+  }
+
+  .summary-table-wrapper {
+    max-height: min(440px, calc(100vh - 260px));
   }
 }
 
@@ -672,7 +786,7 @@
   .reports-tab-panel {
     padding: 20px 16px;
     overflow-y: auto;
-    max-height: calc(100vh - 160px);
+    max-height: calc(100vh - 200px);
   }
 
   .report-section-header {
@@ -715,11 +829,39 @@
 
   .summary-table {
     font-size: 0.9rem;
+    min-width: 760px;
   }
 
   .summary-table th,
   .summary-table td {
     padding: 10px 12px;
+  }
+
+  .attendance-cards-scroll-container {
+    max-height: min(360px, calc(100vh - 260px));
+  }
+}
+
+@media (max-width: 576px) {
+  .reports-container {
+    padding: 0 12px 16px;
+    border-radius: 24px;
+    width: 90vw;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    background: white;
+  }
+
+  .reports-tab-panel {
+    padding: 16px 12px;
+    max-height: calc(100vh - 220px);
+  }
+
+  .summary-table {
+    min-width: 760px;
+  }
+
+  .attendance-cards-scroll-container {
+    max-height: calc(100vh - 260px);
   }
 }
 
@@ -996,6 +1138,7 @@
   .reports-container {
     height: calc(100vh - 120px);
     padding: 0 12px;
+    width: 90vw;
   }
 
   .reports-tab-panel {
@@ -1060,6 +1203,7 @@
 @media (max-width: 480px) {
   .reports-container {
     padding: 0 12px;
+    width: 90vw;
   }
 
   .reports-title {
@@ -1096,5 +1240,54 @@
 
   .attendance-month-title {
     font-size: 1.25rem;
+  }
+}
+
+.summary-table-wrapper,
+.attendance-cards-scroll-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.summary-table-wrapper.limited {
+  max-height: min(360px, calc(100vh - 260px));
+}
+
+.attendance-cards-scroll-container.limited {
+  max-height: min(360px, calc(100vh - 260px));
+}
+
+.summary-table,
+.payroll-table {
+  width: 100%;
+  min-width: 720px;
+}
+
+.payroll-table td,
+.payroll-table th {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .reports-container {
+    padding: 0;
+    width: 90vw;
+  }
+
+  .reports-tab-panel {
+    padding: 16px;
+  }
+
+  .summary-table thead th,
+  .summary-table tbody td,
+  .table-content-wrapper,
+  .summary-table-wrapper {
+    font-size: 0.85rem;
+  }
+
+  .summary-table,
+  .payroll-table {
+    min-width: 480px;
   }
 }
