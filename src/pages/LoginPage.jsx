@@ -48,7 +48,7 @@ const LoginPage = () => {
       <div className="login-card">
         <div className="login-brand">
           <span className="login-icon">👤</span>
-          <h1>True Face Portal</h1>
+          <h1>Faceio Portal</h1>
           <p>Sign in to manage attendance</p>
         </div>
         <form className="login-form" onSubmit={handleSubmit}>

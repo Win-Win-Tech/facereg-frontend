@@ -1,12 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './Reports.css';
 import {
   getTodayAttendanceSummary,
   exportTodayAttendanceSummary,
   getMonthlyAttendanceStatus,
-  exportMonthlyAttendanceStatus,
-} from './api/attendanceApi';
+  exportMonthlyAttendanceStatus,} from './api/attendanceApi';
 import { getEmployees } from './api/employeeApi';
 import {
   generatePayroll as generatePayrollApi,
@@ -33,6 +32,15 @@ const DashboardReports = () => {
   const [todayLoading, setTodayLoading] = useState(false);
   const [todayError, setTodayError] = useState(null);
   const [todayExportLoading, setTodayExportLoading] = useState(false);
+  const [todayFilter, setTodayFilter] = useState('today');
+  const [todayStartDate, setTodayStartDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  });
+  const [todayEndDate, setTodayEndDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  });
 
   const [month, setMonth] = useState(getCurrentMonth);
   const [payrollMonth, setPayrollMonth] = useState(getCurrentMonth);
@@ -52,6 +60,7 @@ const DashboardReports = () => {
   const [payrollExportUrl, setPayrollExportUrl] = useState(null);
   const [payrollExportLoading, setPayrollExportLoading] = useState(false);
   const [locations, setLocations] = useState([]);
+  const isInitialTodayLoad = useRef(true);
 
   const locationMap = useMemo(() => {
     const map = {};
@@ -90,7 +99,28 @@ const DashboardReports = () => {
     setTodayLoading(true);
     setTodayError(null);
     try {
-      const res = await getTodayAttendanceSummary();
+      // determine date range based on filter
+      let params = {};
+      const today = new Date();
+      const isoDate = (d) => d.toISOString().slice(0, 10);
+      if (todayFilter === 'today') {
+        params.start_date = isoDate(today);
+        params.end_date = isoDate(today);
+      } else if (todayFilter === 'yesterday') {
+        const y = new Date(today);
+        y.setDate(y.getDate() - 1);
+        params.start_date = isoDate(y);
+        params.end_date = isoDate(y);
+      } else if (todayFilter === 'thisweek') {
+        const first = new Date(today);
+        first.setDate(first.getDate() - 6);
+        params.start_date = isoDate(first);
+        params.end_date = isoDate(today);
+      } else if (todayFilter === 'custom') {
+        params.start_date = todayStartDate;
+        params.end_date = todayEndDate;
+      }
+      const res = await getTodayAttendanceSummary(params);
       let arr = [];
       if (Array.isArray(res.data)) arr = res.data;
       else if (Array.isArray(res.data?.results)) arr = res.data.results;
@@ -229,6 +259,16 @@ const DashboardReports = () => {
   }, [tab, month]);
 
   useEffect(() => {
+    if (tab === 'today') {
+      if (isInitialTodayLoad.current) {
+        // First time entering today tab - load with default 'today' filter
+        isInitialTodayLoad.current = false;
+      }
+      loadToday();
+    }
+  }, [tab, todayFilter, todayStartDate, todayEndDate]);
+
+  useEffect(() => {
     if (tab === 'payroll') {
       loadPayroll(payrollMonth);
     }
@@ -237,7 +277,30 @@ const DashboardReports = () => {
   const exportToday = async () => {
     setTodayExportLoading(true);
     try {
-      const res = await exportTodayAttendanceSummary();
+      let params = {};
+      if (todayFilter === 'custom') {
+        params.start_date = todayStartDate;
+        params.end_date = todayEndDate;
+      } else {
+        const today = new Date();
+        const isoDate = (d) => d.toISOString().slice(0, 10);
+        if (todayFilter === 'today') {
+          params.start_date = isoDate(today);
+          params.end_date = isoDate(today);
+        } else if (todayFilter === 'yesterday') {
+          const y = new Date(today);
+          y.setDate(y.getDate() - 1);
+          params.start_date = isoDate(y);
+          params.end_date = isoDate(y);
+        } else if (todayFilter === 'thisweek') {
+          const first = new Date(today);
+          // last 6 days (6 days ago to today)
+          first.setDate(first.getDate() - 5);
+          params.start_date = isoDate(first);
+          params.end_date = isoDate(today);
+        }
+      }
+      const res = await exportTodayAttendanceSummary(params);
       if (res.data?.file_url) {
         window.open(res.data.file_url, '_blank');
       }
@@ -416,6 +479,34 @@ const DashboardReports = () => {
               <section className="report-section">
                 <div className="report-section-header">
                   <div className="summary-actions">
+                    <div className="filter-group-compact">
+                      <div className="filter-item">
+                        <label className="filter-label-compact">
+                          <select
+                            value={todayFilter}
+                            onChange={(e) => setTodayFilter(e.target.value)}
+                            className="filter-select-compact"
+                          >
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="thisweek">This week</option>
+                            <option value="custom">Date customize</option>
+                          </select>
+                        </label>
+                      </div>
+                      {todayFilter === 'custom' && (
+                        <div className="custom-date-inputs filter-row">
+                          <label className="filter-label-compact">
+                            <span>From:</span>
+                            <input type="date" value={todayStartDate} onChange={(e) => setTodayStartDate(e.target.value)} className="filter-input-compact" />
+                          </label>
+                          <label className="filter-label-compact">
+                            <span>To:</span>
+                            <input type="date" value={todayEndDate} onChange={(e) => setTodayEndDate(e.target.value)} className="filter-input-compact" />
+                          </label>
+                        </div>
+                      )}
+                    </div>
                     <button className="btn-secondary btn-compact" onClick={loadToday} disabled={todayLoading}>
                       <span className="btn-icon">🔄</span>
                       {todayLoading ? 'Refreshing…' : 'Refresh'}

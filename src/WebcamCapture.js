@@ -427,7 +427,7 @@ const WebcamCapture = () => {
           <div className="sidebar-brand">
             <div className="sidebar-icon">👤</div>
             <div className="sidebar-brand-text">
-              <h2 className="sidebar-title">True Face</h2>
+              <h2 className="sidebar-title">Faceio</h2>
               <span className="sidebar-subtitle">Attendance Suite</span>
             </div>
           </div>
@@ -480,7 +480,7 @@ const WebcamCapture = () => {
                   <div className="hero-icon">👤</div>
                   <div className="icon-ring"></div>
                 </div>
-                <h1 className="hero-title">Welcome to True Face Attendance</h1>
+                <h1 className="hero-title">Welcome to Faceio Attendance</h1>
                 <p className="hero-subtitle">
                   Advanced facial recognition technology for seamless attendance management
                 </p>
@@ -639,13 +639,13 @@ const WebcamCapture = () => {
             <div className="about-screen">
               <div className="about-content">
                 <div className="about-header">
-                  <h2 className="about-title">About True Face Attendance</h2>
+                  <h2 className="about-title">About Faceio Attendance</h2>
                 </div>
 
                 <div className="about-section">
                   <h3 className="section-title">How It Works</h3>
                   <p className="section-text">
-                    True Face Attendance uses advanced facial recognition technology powered by TensorFlow.js and
+                    Faceio Attendance uses advanced facial recognition technology powered by TensorFlow.js and
                     BlazeFace models to identify and verify individuals. The system captures your face, processes it
                     securely, and marks your attendance automatically.
                   </p>

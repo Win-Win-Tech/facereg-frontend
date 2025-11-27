@@ -127,12 +127,11 @@
   border-radius: 0;
   box-shadow: none;
   animation: panelFade 0.3s ease;
-  /* Allow flexible height and enable vertical scrolling when content overflows */
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: rgba(148,163,184,0.6) transparent;
@@ -178,6 +177,8 @@
   flex-direction: column;
   overflow-x: auto;
   overflow-y: auto;
+  /* allow child flex items to shrink and overflow for scrolling */
+  min-width: 0;
   min-height: 0;
   width: 100%;
 }
@@ -553,6 +554,7 @@
   border: 1px solid rgba(148, 163, 184, 0.15);
   max-height: 600px;
   overflow: hidden;
+  min-width: 0;
   position: relative;
   background: white;
   width: 100%;
@@ -581,10 +583,17 @@
   overflow-x: auto;
   overflow-y: auto;
   max-height: inherit;
+  min-width: 0;
+}
+
+.summary-table-container:has(.monthly-table) {
+  overflow-x: scroll;
+  scrollbar-width: auto; 
 }
 
 .summary-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   background: white;
