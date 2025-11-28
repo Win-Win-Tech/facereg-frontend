@@ -5,11 +5,11 @@ export const markAttendance = (formData) =>
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
-export const getTodayAttendanceSummary = () =>
-  httpClient.get('/attendance-summary/');
+export const getTodayAttendanceSummary = (params) =>
+  httpClient.get('/attendance-summary/', { params });
 
-export const exportTodayAttendanceSummary = () =>
-  httpClient.get('/attendance-summary/export/');
+export const exportTodayAttendanceSummary = (params) =>
+  httpClient.get('/attendance-summary/export/', { params });
 
 export const getMonthlyAttendanceStatus = (params) =>
   httpClient.get('/monthly-attendance-status/', { params });

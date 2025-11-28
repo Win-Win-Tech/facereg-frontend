@@ -25,7 +25,7 @@
 }
 
 .reports-container {
-  max-width: 1800px;
+  max-width: 75vw;
   margin: 5px auto;
   padding: 0;
   height: calc(100vh - 50px);
@@ -95,13 +95,13 @@
 
 .tab-button:hover {
   color: #1e293b;
-  background: rgba(255,255,255,0.6);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .tab-button.active {
   color: #2563eb;
   background: white;
-  box-shadow: 0 1px 4px rgba(37,99,235,0.1);
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.1);
 }
 
 .tab-button.active::after {
@@ -117,8 +117,15 @@
 }
 
 @keyframes tabActivate {
-  from { transform: scaleX(0); opacity: 0; }
-  to { transform: scaleX(1); opacity: 1; }
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
 }
 
 .reports-tab-panel {
@@ -127,15 +134,16 @@
   border-radius: 0;
   box-shadow: none;
   animation: panelFade 0.3s ease;
-  /* Allow flexible height and enable vertical scrolling when content overflows */
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(148,163,184,0.6) transparent;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* smooth scrolling on iOS */
+  scrollbar-width: thin;
+  /* Firefox */
+  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
   min-height: 0;
   /* Provide a safe max height so smaller screens will allow the panel to scroll */
   max-height: calc(100vh - 120px);
@@ -146,21 +154,31 @@
   width: 10px;
   height: 10px;
 }
+
 .reports-tab-panel::-webkit-scrollbar-track {
   background: #f8fafc;
 }
+
 .reports-tab-panel::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.4);
   border-radius: 5px;
   border: 2px solid #f8fafc;
 }
+
 .reports-tab-panel::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.6);
 }
 
 @keyframes panelFade {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .report-section {
@@ -178,6 +196,8 @@
   flex-direction: column;
   overflow-x: auto;
   overflow-y: auto;
+  /* allow child flex items to shrink and overflow for scrolling */
+  min-width: 0;
   min-height: 0;
   width: 100%;
 }
@@ -553,6 +573,7 @@
   border: 1px solid rgba(148, 163, 184, 0.15);
   max-height: 600px;
   overflow: hidden;
+  min-width: 0;
   position: relative;
   background: white;
   width: 100%;
@@ -581,10 +602,17 @@
   overflow-x: auto;
   overflow-y: auto;
   max-height: inherit;
+  min-width: 0;
+}
+
+.summary-table-container:has(.monthly-table) {
+  overflow-x: scroll;
+  scrollbar-width: auto;
 }
 
 .summary-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   background: white;
@@ -701,7 +729,7 @@
   padding: 32px;
   text-align: center;
   color: #64748b;
-  background: rgba(248,250,252,0.6);
+  background: rgba(248, 250, 252, 0.6);
   border-radius: 12px;
   flex: 1;
   display: flex;
@@ -711,7 +739,7 @@
 
 .summary-error {
   color: #dc2626;
-  background: rgba(254,242,242,0.8);
+  background: rgba(254, 242, 242, 0.8);
 }
 
 .summary-status {
@@ -748,7 +776,7 @@
     width: 90vw;
     min-height: calc(100vh - 120px);
   }
-  
+
   .reports-tab-panel {
     padding: 24px;
     overflow-y: auto;
@@ -1251,11 +1279,11 @@
 }
 
 .summary-table-wrapper.limited {
-  max-height: min(360px, calc(100vh - 260px));
+  max-height: min(80vh, calc(100vh - 260px));
 }
 
 .attendance-cards-scroll-container.limited {
-  max-height: min(360px, calc(100vh - 260px));
+  max-height: min(80vh, calc(100vh - 260px));
 }
 
 .summary-table,
