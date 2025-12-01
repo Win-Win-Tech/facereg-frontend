@@ -1,24 +1,20 @@
 import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import PrivateRoute from './components/PrivateRoute';
+import LoginPage from './pages/LoginPage';
 import WebcamCapture from './WebcamCapture';
 
 function App() {
-  return <WebcamCapture />;
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<PrivateRoute />}>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/*" element={<WebcamCapture />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
 }
 
 export default App;
-
-
-
-// import React from 'react';
-// import WebcamCapture from './WebcamCapture';
-// import './App.css';
-
-// function App() {
-//   return (
-//     <div className="App">
-//       <WebcamCapture />
-//     </div>
-//   );
-// }
-
-// export default App;

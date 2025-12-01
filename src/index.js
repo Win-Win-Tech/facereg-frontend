@@ -1,18 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
-import axios from 'axios';
-
-axios.defaults.baseURL = process.env.REACT_APP_API_BASE;
+import { AuthProvider } from './contexts/AuthContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
-
-
-
-// import React from 'react';
-// import ReactDOM from 'react-dom/client';
-// import App from './App';
-
-// const root = ReactDOM.createRoot(document.getElementById('root'));
-// root.render(<App />);
+root.render(
+  <React.StrictMode>
+    <AuthProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </AuthProvider>
+  </React.StrictMode>
+);
