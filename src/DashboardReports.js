@@ -203,16 +203,46 @@ const DashboardReports = () => {
   const handleExportPayroll = async (forMonth) => {
     setPayrollExportLoading(true);
     try {
-      const res = await exportPayrollFile(forMonth);
-      if (res.data?.file_url) {
-        setPayrollExportUrl(res.data.file_url);
-        window.open(res.data.file_url, '_blank');
+      const jsonRes = await exportPayrollFile(forMonth);
+      if (jsonRes.data?.file_url) {
+        setPayrollExportUrl(jsonRes.data.file_url);
+        window.open(jsonRes.data.file_url, '_blank');
+      } else {
+        const blobRes = await exportPayrollFile(forMonth, { responseType: 'blob' });
+        triggerDownloadFromResponse(blobRes, `payroll-${forMonth}.csv`);
       }
     } catch (error) {
       console.warn('Failed to export payroll', error?.response?.data || error.message);
       setPayrollError('Failed to export payroll data');
     } finally {
       setPayrollExportLoading(false);
+    }
+  };
+
+  // Helper: create object URL from a blob response and trigger browser download.
+  const triggerDownloadFromResponse = (res, fallbackName = 'export.csv') => {
+    try {
+      const headers = res.headers || {};
+      const contentType = headers['content-type'] || 'application/octet-stream';
+      const disposition = headers['content-disposition'] || headers['Content-Disposition'] || '';
+      let filename = fallbackName;
+      if (disposition) {
+        const fileNameMatch = /filename\*=UTF-8''([^;\n\r]+)|filename="?([^;\n\r"]+)"?/i.exec(disposition);
+        if (fileNameMatch) {
+          filename = decodeURIComponent((fileNameMatch[1] || fileNameMatch[2] || '').trim());
+        }
+      }
+      const blob = new Blob([res.data], { type: contentType });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || fallbackName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn('Failed to download file', e);
     }
   };
 
@@ -300,9 +330,12 @@ const DashboardReports = () => {
           params.end_date = isoDate(today);
         }
       }
-      const res = await exportTodayAttendanceSummary(params);
-      if (res.data?.file_url) {
-        window.open(res.data.file_url, '_blank');
+      const jsonRes = await exportTodayAttendanceSummary(params);
+      if (jsonRes.data?.file_url) {
+        window.open(jsonRes.data.file_url, '_blank');
+      } else {
+        const blobRes = await exportTodayAttendanceSummary(params, { responseType: 'blob' });
+        triggerDownloadFromResponse(blobRes, `attendance-${params.start_date || 'report'}.csv`);
       }
     } catch (error) {
       alert("Failed to export today's attendance");
@@ -314,9 +347,12 @@ const DashboardReports = () => {
   const exportMonthly = async (forMonth) => {
     setMonthlyExportLoading(true);
     try {
-      const res = await exportMonthlyAttendanceStatus({ month: forMonth });
-      if (res.data?.file_url) {
-        window.open(res.data.file_url, '_blank');
+      const jsonRes = await exportMonthlyAttendanceStatus({ month: forMonth });
+      if (jsonRes.data?.file_url) {
+        window.open(jsonRes.data.file_url, '_blank');
+      } else {
+        const blobRes = await exportMonthlyAttendanceStatus({ month: forMonth }, { responseType: 'blob' });
+        triggerDownloadFromResponse(blobRes, `monthly-attendance-${forMonth}.csv`);
       }
     } catch (error) {
       alert('Failed to export monthly attendance');

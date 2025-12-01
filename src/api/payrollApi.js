@@ -6,6 +6,6 @@ export const generatePayroll = (month) =>
 export const getPayroll = (month) =>
   httpClient.get('/payroll/', { params: { month } });
 
-export const exportPayroll = (month) =>
-  httpClient.get('/payroll/export/', { params: { month } });
+export const exportPayroll = (month, config = {}) =>
+  httpClient.get('/payroll/export/', { params: { month }, ...config });
 

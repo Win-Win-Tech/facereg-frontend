@@ -8,12 +8,12 @@ export const markAttendance = (formData) =>
 export const getTodayAttendanceSummary = (params) =>
   httpClient.get('/attendance-summary/', { params });
 
-export const exportTodayAttendanceSummary = (params) =>
-  httpClient.get('/attendance-summary/export/', { params });
+export const exportTodayAttendanceSummary = (params, config = {}) =>
+  httpClient.get('/attendance-summary/export/', { params, ...config });
 
 export const getMonthlyAttendanceStatus = (params) =>
   httpClient.get('/monthly-attendance-status/', { params });
 
-export const exportMonthlyAttendanceStatus = (params) =>
-  httpClient.get('/monthly-attendance/export/', { params });
+export const exportMonthlyAttendanceStatus = (params, config = {}) =>
+  httpClient.get('/monthly-attendance/export/', { params, ...config });
 
