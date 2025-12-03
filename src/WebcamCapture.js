@@ -86,6 +86,10 @@ const WebcamCapture = () => {
   const modelLoadedRef = useRef(false);
   const faceDetectedRef = useRef(false);
   const lastToastTimeRef = useRef({});
+  const lastSuccessfulAttendanceRef = useRef(0);
+  const detectionDebounceRef = useRef(null);
+  const ATTENDANCE_COOLDOWN_MS = 5000; // Prevent duplicate attendance within 3 minutes (180000ms)
+  const DETECTION_INTERVAL_MS = 3000; // Check for faces every 1000ms
 
   const removeToast = useCallback((id) => {
     setToasts((prev) =>
@@ -208,6 +212,11 @@ const WebcamCapture = () => {
   };
 
   const captureAndSend = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastSuccessfulAttendanceRef.current < ATTENDANCE_COOLDOWN_MS) {
+      return; // Still in cooldown period
+    }
+
     if (!webcamRef.current || isProcessingRef.current) return;
 
     const imageSrc = webcamRef.current.getScreenshot();
@@ -223,7 +232,8 @@ const WebcamCapture = () => {
 
       const response = await markAttendance(formData);
       const data = response.data;
-      console.log('data', data);
+
+      lastSuccessfulAttendanceRef.current = Date.now();
 
       if (data.status === 'Already marked') {
         const attendanceDetails = await fetchAttendanceDetails(data.employee);
@@ -243,14 +253,12 @@ const WebcamCapture = () => {
         const message = `Hello ${data.employee}!\nYour attendance for today is already recorded:\n\nCheck-in: ${checkinTime}\nCheck-out: ${checkoutTime}`;
 
         showToast('info', 'Already Checked In/Out', message, 'attendance-already-marked', {
-          durationMs: 8000,
+          durationMs: 3000,
           variant: 'hero',
-          photo: data.photo,
+          photo: data.photo || imageSrc,
         });
-        stopCameraWith('completed');
-        setTimeout(() => {
-          setStarted(false);
-        }, 2000);
+        faceDetectedRef.current = false;
+        setFaceDetected(false);
       } else if (data.status?.includes('successful')) {
         const isCheckin = data.status.toLowerCase().includes('checkin');
         showToast(
@@ -259,19 +267,22 @@ const WebcamCapture = () => {
           data.message,
           'attendance-success',
           {
-            durationMs: 6000,
+            durationMs: 3000,
             variant: 'hero',
             confidence: data.confidence,
             timestamp: data.timestamp,
-            photo: data.photo,
+            photo: data.photo || imageSrc,
           }
         );
-        stopCameraWith('completed');
-        setTimeout(() => {
-          setStarted(false);
-        }, 2000);
+        // Keep camera on - don't stop it
+        faceDetectedRef.current = false;
+        setFaceDetected(false);
       } else {
-        showToast('error', 'Unknown Response', 'Received unexpected response from server.', 'attendance-unknown');
+        showToast('error', 'Unknown Response', 'Received unexpected response from server.', 'attendance-unknown', {
+          durationMs: 3000,
+          variant: 'hero',
+          photo: data.photo || imageSrc,
+        });
       }
 
       setTimeout(() => {
@@ -298,13 +309,19 @@ const WebcamCapture = () => {
         }
       }
 
-      showToast('error', errTitle, errMsg, 'attendance-error', { durationMs: 10000 });
+      showToast('error', errTitle, errMsg, 'attendance-error', {
+        durationMs: 3000,
+        variant: 'hero',
+        photo: error.response?.data?.photo,
+      });
 
-      stopCameraWith('error');
+      // Keep camera on even on error - user can try again
+      faceDetectedRef.current = false;
+      setFaceDetected(false);
       isProcessingRef.current = false;
       setIsProcessing(false);
     }
-  }, [showToast, stopCameraWith, fetchAttendanceDetails]);
+  }, [showToast, fetchAttendanceDetails]);
 
   useEffect(() => {
     if (!started || !cameraActive || !model) {
@@ -338,6 +355,7 @@ const WebcamCapture = () => {
           setFaceDetected(detected);
         }
 
+        // Automatically capture when face is detected
         if (detected && !isProcessingRef.current) {
           captureAndSend();
         }
@@ -350,32 +368,24 @@ const WebcamCapture = () => {
       }
     };
 
-    const interval = setInterval(detectFace, 1000);
+    // Run detection at optimized interval
+    const interval = setInterval(detectFace, DETECTION_INTERVAL_MS);
 
     return () => {
       clearInterval(interval);
     };
-  }, [started, cameraActive, model, captureAndSend]);
-
-  const handleStart = () => {
-    if (!started) {
-      modelLoadedRef.current = false;
-    }
-    dismissAllToasts();
-    setStarted(true);
-    setCameraActive(true);
-    setActiveTab('attendance');
-    navigate('/attendance');
-    setSidebarOpen(false);
-  };
+  }, [started, cameraActive, model, captureAndSend, DETECTION_INTERVAL_MS]);
 
   const handleRetry = useCallback(() => {
     dismissAllToasts();
-    setStarted(false);
-    setCameraActive(false);
+    setStarted(true);
+    setCameraActive(true);
     isProcessingRef.current = false;
     setIsProcessing(false);
     setStoppedState('idle');
+    faceDetectedRef.current = false;
+    setFaceDetected(false);
+    lastSuccessfulAttendanceRef.current = 0; // Reset cooldown on retry
   }, [dismissAllToasts]);
 
   const handleTabChange = useCallback((tab) => {
@@ -385,12 +395,29 @@ const WebcamCapture = () => {
       return;
     }
 
-    if (tab !== 'attendance') {
+    if (tab === 'attendance') {
+      // Auto-start camera immediately when user navigates to attendance tab
+      if (!started) {
+        modelLoadedRef.current = false;
+        lastSuccessfulAttendanceRef.current = 0; // Reset cooldown
+        isProcessingRef.current = false;
+        faceDetectedRef.current = false;
+        setFaceDetected(false);
+        setIsProcessing(false);
+        setStoppedState('idle');
+      }
+      setStarted(true);
+      setCameraActive(true);
+    } else {
       if (cameraActive) {
         stopCamera();
       }
       setStarted(false);
+      setCameraActive(false);
       setStoppedState('idle');
+      faceDetectedRef.current = false;
+      setFaceDetected(false);
+      lastSuccessfulAttendanceRef.current = 0; // Reset cooldown when leaving
     }
 
     setActiveTab(tab);
@@ -511,108 +538,72 @@ const WebcamCapture = () => {
               </div>
 
               <div className="cta-section">
-                <button className="primary-cta-button" onClick={handleStart}>
-                  <span className="cta-icon">🚀</span>
-                  <span>Start Marking Attendance</span>
+                <button className="primary-cta-button" onClick={() => {
+                  setActiveTab('attendance');
+                  navigate('/attendance');
+                }}>
+                  <span className="cta-icon">📸</span>
+                  <span>Go to Attendance</span>
                 </button>
-                <p className="cta-hint">Camera permission required to begin recognition</p>
+                <p className="cta-hint">Click to start marking attendance with automatic face detection</p>
               </div>
             </div>
           )}
 
           {activeTab === 'attendance' && (
             <div className="attendance-screen">
-              {!started ? (
-                <div className="attendance-start">
-                  <div className="start-card">
-                    <div className="start-icon-wrapper">
-                      <div className="start-icon">📸</div>
-                    </div>
-                    <h2 className="start-title">Ready to Mark Attendance</h2>
-                    <p className="start-description">
-                      Activate your camera to launch the real-time face recognition workflow.
+              {started && cameraActive ? (
+                <>
+                  <div className="camera-container">
+                    <Webcam
+                      audio={false}
+                      ref={webcamRef}
+                      screenshotFormat="image/jpeg"
+                      className="camera-feed"
+                      videoConstraints={{
+                        facingMode: 'user',
+                        width: { min: 320, ideal: 1920, max: 2560 },
+                        height: { min: 240, ideal: 1080, max: 1440 },
+                        aspectRatio: 16 / 9,
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        maxHeight: '100vh',
+                        objectFit: 'contain',
+                        backgroundColor: '#000',
+                      }}
+                    />
+
+                    {model && (
+                      <div className="detection-frame">
+                        <div className="scanning-line"></div>
+                        <div className="detection-status">
+                          {isProcessing ? '⏳ Processing...' : faceDetected ? '✓ Face Detected' : '👁️ Waiting...'}
+                        </div>
+                      </div>
+                    )}
+
+                    {isProcessing && (
+                      <div className="processing-overlay">
+                        <div className="processing-content">
+                          <div className="spinner"></div>
+                          <div className="processing-text">Marking Attendance...</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="attendance-loading">
+                  <div className="loading-card">
+                    <div className="loading-spinner"></div>
+                    <h2 className="loading-title">Starting Camera...</h2>
+                    <p className="loading-description">
+                      Please grant camera permission and position your face in frame
                     </p>
-                    <button className="start-attendance-button" onClick={handleStart}>
-                      Mark my attendance
-                    </button>
                   </div>
                 </div>
-              ) : (
-                <>
-                  {cameraActive ? (
-                    <div className="camera-container">
-                      <Webcam
-                        audio={false}
-                        ref={webcamRef}
-                        screenshotFormat="image/jpeg"
-                        className="camera-feed"
-                        videoConstraints={{
-                          facingMode: 'user',
-                          width: { min: 320, ideal: 1920, max: 2560 },
-                          height: { min: 240, ideal: 1080, max: 1440 },
-                          aspectRatio: 16 / 9,
-                        }}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          maxHeight: '100vh',
-                          objectFit: 'contain',
-                          backgroundColor: '#000',
-                        }}
-                      />
-
-                      {model && (
-                        <div className="detection-frame">
-                          <div className="scanning-line"></div>
-                        </div>
-                      )}
-
-                      {isProcessing && (
-                        <div className="processing-overlay">
-                          <div className="processing-content">
-                            <div className="spinner"></div>
-                            <div className="processing-text">Processing...</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="camera-stopped">
-                      <div className="stopped-card">
-                        <div className="stopped-icon">{stoppedState === 'error' ? '⚠️' : '✓'}</div>
-                        <h2 className="stopped-title">
-                          {stoppedState === 'error'
-                            ? "Let's Try Again"
-                            : stoppedState === 'cancelled'
-                              ? 'Camera Stopped'
-                              : stoppedState === 'retry'
-                                ? 'Ready to Continue'
-                                : 'Capture Complete'}
-                        </h2>
-                        <p className="stopped-description">
-                          {stoppedState === 'error'
-                            ? 'We could not confirm your face. Ensure good lighting and keep your face centered.'
-                            : stoppedState === 'cancelled'
-                              ? 'You can resume anytime. Click below to try again.'
-                              : stoppedState === 'retry'
-                                ? 'Click below to resume your attendance capture.'
-                                : 'Attendance has been submitted. You can retry to capture again if needed.'}
-                        </p>
-                        <button className="retry-button" onClick={handleRetry}>
-                          Retry Attendance
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {cameraActive && !isProcessing && (
-                    <div className="bottom-controls">
-                      <button className="control-button" onClick={() => stopCameraWith('cancelled')}>
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </>
               )}
             </div>
           )}
@@ -791,6 +782,51 @@ const WebcamCapture = () => {
       {isCompactNav && overflowOpen && (
         <div className="bottom-more-overlay" onClick={() => setOverflowOpen(false)} />
       )}
+
+      {/* Toast Notifications Container */}
+      <div className="toast-container">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`toast ${toast.type} ${toast.variant || ''} ${toast.exiting ? 'exiting' : ''}`}
+          >
+            <div className="toast-header">
+              {toast.options?.photo ? (
+                <div className="toast-photo">
+                  <img src={toast.options.photo} alt="face" />
+                </div>
+              ) : (
+                <div className="toast-icon"></div>
+              )}
+              <div>
+                <div className="toast-title">{toast.title}</div>
+                <div className="toast-message">{toast.message}</div>
+                {(toast.options?.confidence || toast.options?.timestamp) && (
+                  <div className="toast-details">
+                    {toast.options?.confidence && (
+                      <span className="toast-confidence">
+                        Confidence: {(toast.options.confidence * 100).toFixed(1)}%
+                      </span>
+                    )}
+                    {toast.options?.timestamp && (
+                      <span className="toast-timestamp">
+                        {new Date(toast.options.timestamp).toLocaleTimeString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="toast-close"
+              onClick={() => removeToast(toast.id)}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
 
     </div>
   );
