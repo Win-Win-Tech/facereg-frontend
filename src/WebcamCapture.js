@@ -364,6 +364,9 @@ const WebcamCapture = () => {
           }
         } catch (e) {}
 
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+
         showToast(
           toastType,
           toastTitle,
