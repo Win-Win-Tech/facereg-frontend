@@ -8,6 +8,13 @@ import {
   registerEmployee,
   updateEmployee,
   deleteEmployee,
+  getShifts,
+  getSites,
+  getAssignments,
+  createAssignment,
+  updateAssignment,
+  assignUserSites,
+  getUserSites,
 } from '../api/employeeApi';
 import { getLocations } from '../api/locationApi';
 
@@ -29,6 +36,28 @@ const initialForm = {
   location_id: '',
   faceImage: null,
   profilePhoto: null,
+  // Payslip fields
+  gross_salary: '',
+  payslip_field_config_id: '',
+  // Employee details
+  employee_code: '',
+  department: '',
+  designation: '',
+  experience_years: '',
+  joining_date: '',
+  // Banking details
+  bank_account_number: '',
+  ifsc_code: '',
+  bank_name: '',
+  // Identification
+  pan_number: '',
+  aadhaar_number: '',
+  uan_number: '',
+  esi_number: '',
+  // Contact
+  email: '',
+  phone: '',
+  address: '',
 };
 
 const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
@@ -49,6 +78,16 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
   const [originalFacePreview, setOriginalFacePreview] = useState(null);
   const [originalProfilePreview, setOriginalProfilePreview] = useState(null);
   const faceSectionRef = useRef(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedEmployeeForAssign, setSelectedEmployeeForAssign] = useState(null);
+  const [shifts, setShifts] = useState([]);
+  const [sites, setSites] = useState([]);
+  const [assignmentForm, setAssignmentForm] = useState({
+    shift_id: '',
+    site_ids: [],
+  });
+  const [existingAssignmentId, setExistingAssignmentId] = useState(null);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
 
   const activeLocations = useMemo(
     () => locations.filter((loc) => !loc.is_deleted),
@@ -116,10 +155,21 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     }
   }, [onNotify]);
 
+  const loadShiftsAndSites = useCallback(async () => {
+    try {
+      const [shiftsRes, sitesRes] = await Promise.all([getShifts(), getSites()]);
+      setShifts(Array.isArray(shiftsRes.data) ? shiftsRes.data : []);
+      setSites(Array.isArray(sitesRes.data) ? sitesRes.data : []);
+    } catch (error) {
+      console.error('Failed to load shifts and sites:', error);
+    }
+  }, []);
+
   useEffect(() => {
     loadLocations();
     loadEmployees();
-  }, [loadLocations, loadEmployees]);
+    loadShiftsAndSites();
+  }, [loadLocations, loadEmployees, loadShiftsAndSites]);
 
   useEffect(() => {
     if (!showModal) {
@@ -215,6 +265,23 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
       location_id: isSuperAdmin ? '' : (userLocationId ? String(userLocationId) : ''),
       faceImage: null,
       profilePhoto: null,
+      gross_salary: '',
+      payslip_field_config_id: '',
+      employee_code: '',
+      department: '',
+      designation: '',
+      experience_years: '',
+      joining_date: '',
+      bank_account_number: '',
+      ifsc_code: '',
+      bank_name: '',
+      pan_number: '',
+      aadhaar_number: '',
+      uan_number: '',
+      esi_number: '',
+      email: '',
+      phone: '',
+      address: '',
     });
     setErrors({});
     setModalMode('create');
@@ -237,6 +304,23 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
       location_id: employee.location_id ? String(employee.location_id) : '',
       faceImage: null,
       profilePhoto: null,
+      gross_salary: '',
+      payslip_field_config_id: '',
+      employee_code: '',
+      department: '',
+      designation: '',
+      experience_years: '',
+      joining_date: '',
+      bank_account_number: '',
+      ifsc_code: '',
+      bank_name: '',
+      pan_number: '',
+      aadhaar_number: '',
+      uan_number: '',
+      esi_number: '',
+      email: '',
+      phone: '',
+      address: '',
     });
     setFacePreview(null);
     setProfilePreview(null);
@@ -253,6 +337,23 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
         location_id: detail.location_id ? String(detail.location_id) : '',
         faceImage: null,
         profilePhoto: null,
+        gross_salary: detail.gross_salary || '',
+        payslip_field_config_id: detail.payslip_field_config_id || '',
+        employee_code: detail.employee_code || '',
+        department: detail.department || '',
+        designation: detail.designation || '',
+        experience_years: detail.experience_years || '',
+        joining_date: detail.joining_date || '',
+        bank_account_number: detail.bank_account_number || '',
+        ifsc_code: detail.ifsc_code || '',
+        bank_name: detail.bank_name || '',
+        pan_number: detail.pan_number || '',
+        aadhaar_number: detail.aadhaar_number || '',
+        uan_number: detail.uan_number || '',
+        esi_number: detail.esi_number || '',
+        email: detail.email || '',
+        phone: detail.phone || '',
+        address: detail.address || '',
       });
       const existingPhoto = detail.photo_data || null;
       setFacePreview(null);
@@ -287,6 +388,9 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     if (modalMode === 'create' && !form.profilePhoto) {
       next.profile_photo = 'Profile photo is required';
     }
+    if (form.payslip_field_config_id && !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(form.payslip_field_config_id)) {
+      next.payslip_field_config_id = 'Payslip Config ID must be a valid UUID.';
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -311,6 +415,29 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
         if (form.profilePhoto) {
           formData.append('profile_photo', form.profilePhoto);
         }
+        // Payslip fields
+        if (form.gross_salary) formData.append('gross_salary', form.gross_salary);
+        if (form.payslip_field_config_id) formData.append('payslip_field_config_id', form.payslip_field_config_id);
+        // Employee details
+        if (form.employee_code) formData.append('employee_code', form.employee_code);
+        if (form.department) formData.append('department', form.department);
+        if (form.designation) formData.append('designation', form.designation);
+        if (form.experience_years) formData.append('experience_years', form.experience_years);
+        if (form.joining_date) formData.append('joining_date', form.joining_date);
+        // Banking details
+        if (form.bank_account_number) formData.append('bank_account_number', form.bank_account_number);
+        if (form.ifsc_code) formData.append('ifsc_code', form.ifsc_code);
+        if (form.bank_name) formData.append('bank_name', form.bank_name);
+        // Identification
+        if (form.pan_number) formData.append('pan_number', form.pan_number);
+        if (form.aadhaar_number) formData.append('aadhaar_number', form.aadhaar_number);
+        if (form.uan_number) formData.append('uan_number', form.uan_number);
+        if (form.esi_number) formData.append('esi_number', form.esi_number);
+        // Contact
+        if (form.email) formData.append('email', form.email);
+        if (form.phone) formData.append('phone', form.phone);
+        if (form.address) formData.append('address', form.address);
+        
         await registerEmployee(formData);
         onNotify?.('success', 'Employee Registered', 'Employee has been registered successfully.');
       } else {
@@ -327,6 +454,29 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
         if (form.profilePhoto) {
           formData.append('profile_photo', form.profilePhoto);
         }
+        // Payslip fields
+        if (form.gross_salary) formData.append('gross_salary', form.gross_salary);
+        if (form.payslip_field_config_id) formData.append('payslip_field_config_id', form.payslip_field_config_id);
+        // Employee details
+        if (form.employee_code) formData.append('employee_code', form.employee_code);
+        if (form.department) formData.append('department', form.department);
+        if (form.designation) formData.append('designation', form.designation);
+        if (form.experience_years) formData.append('experience_years', form.experience_years);
+        if (form.joining_date) formData.append('joining_date', form.joining_date);
+        // Banking details
+        if (form.bank_account_number) formData.append('bank_account_number', form.bank_account_number);
+        if (form.ifsc_code) formData.append('ifsc_code', form.ifsc_code);
+        if (form.bank_name) formData.append('bank_name', form.bank_name);
+        // Identification
+        if (form.pan_number) formData.append('pan_number', form.pan_number);
+        if (form.aadhaar_number) formData.append('aadhaar_number', form.aadhaar_number);
+        if (form.uan_number) formData.append('uan_number', form.uan_number);
+        if (form.esi_number) formData.append('esi_number', form.esi_number);
+        // Contact
+        if (form.email) formData.append('email', form.email);
+        if (form.phone) formData.append('phone', form.phone);
+        if (form.address) formData.append('address', form.address);
+        
         await updateEmployee(form.id, formData);
         onNotify?.('success', 'Employee Updated', 'Employee details have been updated.');
       }
@@ -343,6 +493,97 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
       onNotify?.('error', 'Save Failed', detail || 'Unable to save employee.', undefined, { durationMs: 6000 });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openAssignModal = async (employee) => {
+    setSelectedEmployeeForAssign(employee);
+    setAssignmentForm({ shift_id: '', site_ids: [] });
+    setExistingAssignmentId(null);
+    setShowAssignModal(true);
+    
+    // Load shifts and sites
+    try {
+      const [shiftsRes, sitesRes] = await Promise.all([
+        getShifts(),
+        getSites(),
+      ]);
+      setShifts(Array.isArray(shiftsRes.data) ? shiftsRes.data : []);
+      setSites(Array.isArray(sitesRes.data) ? sitesRes.data : []);
+    } catch (error) {
+      console.error('Failed to load shifts and sites:', error);
+    }
+
+    // Load existing assignments if available
+    try {
+      const assignmentsRes = await getAssignments({ user_id: employee.id });
+      if (Array.isArray(assignmentsRes.data) && assignmentsRes.data.length > 0) {
+        const assignment = assignmentsRes.data[0];
+        setExistingAssignmentId(assignment.id);
+        
+        // Get shift_id from assignment (could be named shift, shift_id, or have nested id)
+        const shiftId = assignment.shift_id || assignment.shift || '';
+        setAssignmentForm({
+          shift_id: shiftId,
+          site_ids: assignment.site_ids || [],
+        });
+      }
+
+      // Also load user sites to ensure we have the correct site assignments
+      try {
+        const userSitesRes = await getUserSites(employee.id);
+        if (Array.isArray(userSitesRes.data) && userSitesRes.data.length > 0) {
+          const siteIds = userSitesRes.data.map(us => us.site || us.site_id).filter(Boolean);
+          setAssignmentForm(prev => ({
+            ...prev,
+            site_ids: siteIds,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load user sites:', error);
+      }
+    } catch (error) {
+      console.error('Failed to load assignments:', error);
+    }
+  };
+
+  const handleAssignmentSubmit = async (event) => {
+    event.preventDefault();
+    if (!selectedEmployeeForAssign) return;
+    
+    setAssignmentLoading(true);
+    try {
+      // Create assignment payload with user, location, and shift fields (as required by backend)
+      const assignmentPayload = {
+        user: selectedEmployeeForAssign.id,
+        location: selectedEmployeeForAssign.location_id,
+        shift: assignmentForm.shift_id || null,
+      };
+
+      // Update or create assignment based on whether it exists
+      if (existingAssignmentId) {
+        // Update existing assignment
+        await updateAssignment(existingAssignmentId, assignmentPayload);
+      } else {
+        // Create new assignment
+        await createAssignment(assignmentPayload);
+      }
+
+      // Always call assignUserSites to update site assignments
+      // This handles both adding new sites and updating existing ones
+      await assignUserSites(selectedEmployeeForAssign.id, {
+        site_ids: assignmentForm.site_ids,
+      });
+
+      onNotify?.('success', 'Assignment Saved', 'Shift and sites assigned successfully.');
+      setShowAssignModal(false);
+      setSelectedEmployeeForAssign(null);
+      setExistingAssignmentId(null);
+    } catch (error) {
+      const detail = error.response?.data?.detail || error.response?.data?.error || 'Unable to save assignment.';
+      onNotify?.('error', 'Assignment Failed', detail, undefined, { durationMs: 6000 });
+    } finally {
+      setAssignmentLoading(false);
     }
   };
 
@@ -412,6 +653,9 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
                       <button type="button" className="edit" onClick={() => openEditModal(employee)}>
                         Edit
                       </button>
+                      <button type="button" className="assign" onClick={() => openAssignModal(employee)}>
+                        Assign
+                      </button>
                       <button type="button" className="delete" onClick={() => handleDelete(employee)}>
                         Delete
                       </button>
@@ -424,6 +668,76 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
         )}
         </div>
       </div>
+
+      {showAssignModal && selectedEmployeeForAssign && (
+        <Modal
+          title={`${existingAssignmentId ? 'Update' : 'Assign'} Shift & Sites - ${selectedEmployeeForAssign.name}`}
+          onClose={() => setShowAssignModal(false)}
+          actions={
+            <>
+              <button type="button" className="secondary" onClick={() => setShowAssignModal(false)}>
+                Cancel
+              </button>
+              <button type="submit" form="assignment-form" disabled={assignmentLoading}>
+                {assignmentLoading ? 'Saving…' : existingAssignmentId ? 'Update' : 'Assign'}
+              </button>
+            </>
+          }
+        >
+          <form id="assignment-form" className="assignment-form" onSubmit={handleAssignmentSubmit}>
+            <div className="form-section">
+              <h3 className="section-title">Shift Assignment</h3>
+              <div className="form-group">
+                <label className="form-label">Select Shift</label>
+                <select
+                  name="shift_id"
+                  className="form-control"
+                  value={assignmentForm.shift_id}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, shift_id: e.target.value })}
+                >
+                  <option value="">No Shift</option>
+                  {shifts.map((shift) => (
+                    <option key={shift.id} value={shift.id}>
+                      {shift.shift_name || shift.name} ({shift.start_time} - {shift.end_time})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-section">
+              <h3 className="section-title">Site Assignment</h3>
+              <div className="form-group">
+                <label className="form-label">Select Sites</label>
+                <div className="checkbox-group">
+                  {sites.map((site) => (
+                    <label key={site.id} className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={assignmentForm.site_ids.includes(site.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAssignmentForm({
+                              ...assignmentForm,
+                              site_ids: [...assignmentForm.site_ids, site.id],
+                            });
+                          } else {
+                            setAssignmentForm({
+                              ...assignmentForm,
+                              site_ids: assignmentForm.site_ids.filter((id) => id !== site.id),
+                            });
+                          }
+                        }}
+                      />
+                      <span className="checkbox-text">{site.site_name || site.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {showModal && (
         <Modal
@@ -443,107 +757,388 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
           {modalLoading ? (
             <div className="management-empty">Loading employee…</div>
           ) : (
-            <form id="employee-form" className="management-form" onSubmit={handleSubmit}>
-            <label>
-              Name
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleNameChange}
-                placeholder="Employee name"
-              />
-              {errors.name && <div className="form-error">{errors.name}</div>}
-            </label>
+            <form id="employee-form" className="employee-form-container" onSubmit={handleSubmit}>
+             
 
-            {isSuperAdmin ? (
-              <label>
-                Location
-                <select
-                  name="location_id"
-                  value={form.location_id}
-                  onChange={handleLocationChange}
-                >
-                  <option value="">Select location</option>
-                  {activeLocations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.location_id && <div className="form-error">{errors.location_id}</div>}
-              </label>
-            ) : (
-              <label>
-                Location
-                <input value={locationName(form.location_id)} readOnly />
-                {errors.location_id && <div className="form-error">{errors.location_id}</div>}
-              </label>
-            )}
+              {/* Basic Information Section */}
+              <div className="form-section">
+                <h3 className="section-title">Basic Information</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">
+                      Name <span className="required-indicator">*</span>
+                    </label>
+                    <input
+                      name="name"
+                      className="form-control"
+                      value={form.name}
+                      onChange={handleNameChange}
+                      placeholder="Enter employee name"
+                    />
+                    {errors.name && <div className="form-error">{errors.name}</div>}
+                  </div>
 
-            <div className="face-capture-section" ref={faceSectionRef}>
-              <span className="face-capture-label">Employee face photo</span>
-              <div className="face-capture-preview">
-                {showCamera ? (
-                  <Webcam
-                    audio={false}
-                    ref={webcamRef}
-                    screenshotFormat="image/jpeg"
-                    videoConstraints={{ facingMode: 'user' }}
-                  />
-                ) : facePreview ? (
-                  <img src={facePreview} alt="Face preview" />
-                ) : (
-                  <div className="face-placeholder">No face captured yet</div>
-                )}
+                  {isSuperAdmin ? (
+                    <div className="form-group">
+                      <label className="form-label">
+                        Location <span className="required-indicator">*</span>
+                      </label>
+                      <select
+                        name="location_id"
+                        className="form-control"
+                        value={form.location_id}
+                        onChange={handleLocationChange}
+                      >
+                        <option value="">Select location</option>
+                        {activeLocations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.location_id && <div className="form-error">{errors.location_id}</div>}
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label className="form-label">
+                        Location <span className="required-indicator">*</span>
+                      </label>
+                      <input
+                        className="form-control"
+                        value={locationName(form.location_id)}
+                        readOnly
+                      />
+                      {errors.location_id && <div className="form-error">{errors.location_id}</div>}
+                    </div>
+                  )}
+                </div>
               </div>
-              {modalMode === 'edit' && (
-                <span className="face-note">
-                  Capture a new face photo if you want to update recognition data.
-                </span>
-              )}
-              <div className="face-capture-actions">
-                {showCamera ? (
-                  <>
-                    <button type="button" onClick={handleCaptureFace}>
-                      Capture
-                    </button>
-                    <button type="button" className="secondary" onClick={() => setShowCamera(false)}>
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button type="button" onClick={handleStartCamera}>
-                      {facePreview ? 'Retake face photo' : 'Capture face photo'}
-                    </button>
-                    {modalMode === 'edit' && originalFacePreview && facePreview !== originalFacePreview && (
-                      <button type="button" className="secondary" onClick={handleUseOriginalFace}>
-                        Use saved face photo
-                      </button>
+
+              {/* Photo Section */}
+              <div className="form-section">
+                <h3 className="section-title">Photography</h3>
+                
+                <div className="form-group">
+                  <label className="form-label">
+                    Employee Face Photo <span className="required-indicator">*</span>
+                  </label>
+                  <div className="face-capture-section" ref={faceSectionRef}>
+                    <div className="face-capture-preview">
+                      {showCamera ? (
+                        <Webcam
+                          audio={false}
+                          ref={webcamRef}
+                          screenshotFormat="image/jpeg"
+                          videoConstraints={{ facingMode: 'user' }}
+                        />
+                      ) : facePreview ? (
+                        <img src={facePreview} alt="Face preview" />
+                      ) : (
+                        <div className="face-placeholder">
+                          <span>📷</span>
+                          <p>No face captured yet</p>
+                        </div>
+                      )}
+                    </div>
+                    {modalMode === 'edit' && (
+                      <span className="face-note">
+                        Capture a new face photo if you want to update recognition data.
+                      </span>
                     )}
-                  </>
-                )}
+                    <div className="face-capture-actions">
+                      {showCamera ? (
+                        <>
+                          <button type="button" className="btn-primary" onClick={handleCaptureFace}>
+                            Capture
+                          </button>
+                          <button type="button" className="btn-secondary" onClick={() => setShowCamera(false)}>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" className="btn-primary" onClick={handleStartCamera}>
+                            {facePreview ? 'Retake face photo' : 'Capture face photo'}
+                          </button>
+                          {modalMode === 'edit' && originalFacePreview && facePreview !== originalFacePreview && (
+                            <button type="button" className="btn-secondary" onClick={handleUseOriginalFace}>
+                              Use saved face photo
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {errors.face_image && <div className="form-error">{errors.face_image}</div>}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Employee Profile Photo</label>
+                  <div className="file-input-wrapper">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleProfilePhotoChange}
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="profile-preview">
+                    {profilePreview ? (
+                      <img src={profilePreview} alt="Profile preview" />
+                    ) : (
+                      <div className="face-placeholder">
+                        <span>📸</span>
+                        <p>No profile photo selected</p>
+                      </div>
+                    )}
+                  </div>
+                  {errors.profile_photo && <div className="form-error">{errors.profile_photo}</div>}
+                </div>
               </div>
-              {errors.face_image && <div className="form-error">{errors.face_image}</div>}
-            </div>
 
-            <label>
-              Employee profile photo
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleProfilePhotoChange}
-              />
-            </label>
-            <div className="profile-preview">
-              {profilePreview ? (
-                <img src={profilePreview} alt="Profile preview" />
-              ) : (
-                <div className="face-placeholder">No profile photo selected</div>
-              )}
-            </div>
-            {errors.profile_photo && <div className="form-error">{errors.profile_photo}</div>}
+              {/* Payroll Information Section */}
+              <div className="form-section">
+                <h3 className="section-title">Payroll Information</h3>
+                <div className="form-grid form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Gross Salary</label>
+                    <input
+                      type="number"
+                      name="gross_salary"
+                      className="form-control"
+                      value={form.gross_salary}
+                      onChange={(e) => setForm({ ...form, gross_salary: e.target.value })}
+                      placeholder="Gross salary amount"
+                      step="0.01"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Payslip Config ID</label>
+                    <input
+                      type="text"
+                      name="payslip_field_config_id"
+                      className="form-control"
+                      value={form.payslip_field_config_id}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setForm({ ...form, payslip_field_config_id: value });
+                        // Clear error if valid
+                        if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value)) {
+                          setErrors((prev) => ({ ...prev, payslip_field_config_id: undefined }));
+                        }
+                      }}
+                      placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
+                    />
+                    {errors.payslip_field_config_id && (
+                      <div className="form-error">{errors.payslip_field_config_id}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
+              {/* Employee Details Section */}
+              <div className="form-section">
+                <h3 className="section-title">Employee Details</h3>
+                <div className="form-grid form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Employee Code</label>
+                    <input
+                      type="text"
+                      name="employee_code"
+                      className="form-control"
+                      value={form.employee_code}
+                      onChange={(e) => setForm({ ...form, employee_code: e.target.value })}
+                      placeholder="Employee code"
+                      maxLength="50"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Department</label>
+                    <input
+                      type="text"
+                      name="department"
+                      className="form-control"
+                      value={form.department}
+                      onChange={(e) => setForm({ ...form, department: e.target.value })}
+                      placeholder="Department"
+                      maxLength="100"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Designation</label>
+                    <input
+                      type="text"
+                      name="designation"
+                      className="form-control"
+                      value={form.designation}
+                      onChange={(e) => setForm({ ...form, designation: e.target.value })}
+                      placeholder="Designation/Job Title"
+                      maxLength="100"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Experience (Years)</label>
+                    <input
+                      type="number"
+                      name="experience_years"
+                      className="form-control"
+                      value={form.experience_years}
+                      onChange={(e) => setForm({ ...form, experience_years: e.target.value })}
+                      placeholder="Years of experience"
+                      step="0.01"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Joining Date</label>
+                    <input
+                      type="date"
+                      name="joining_date"
+                      className="form-control"
+                      value={form.joining_date}
+                      onChange={(e) => setForm({ ...form, joining_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Banking Details Section */}
+              <div className="form-section">
+                <h3 className="section-title">Banking Details</h3>
+                <div className="form-grid form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Bank Account Number</label>
+                    <input
+                      type="text"
+                      name="bank_account_number"
+                      className="form-control"
+                      value={form.bank_account_number}
+                      onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })}
+                      placeholder="Account number"
+                      maxLength="20"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">IFSC Code</label>
+                    <input
+                      type="text"
+                      name="ifsc_code"
+                      className="form-control"
+                      value={form.ifsc_code}
+                      onChange={(e) => setForm({ ...form, ifsc_code: e.target.value })}
+                      placeholder="IFSC code"
+                      maxLength="11"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Bank Name</label>
+                    <input
+                      type="text"
+                      name="bank_name"
+                      className="form-control"
+                      value={form.bank_name}
+                      onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+                      placeholder="Bank name"
+                      maxLength="100"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Identification Section */}
+              <div className="form-section">
+                <h3 className="section-title">Government Identification</h3>
+                <div className="form-grid form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">PAN Number</label>
+                    <input
+                      type="text"
+                      name="pan_number"
+                      className="form-control"
+                      value={form.pan_number}
+                      onChange={(e) => setForm({ ...form, pan_number: e.target.value })}
+                      placeholder="PAN number"
+                      maxLength="10"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Aadhaar Number</label>
+                    <input
+                      type="text"
+                      name="aadhaar_number"
+                      className="form-control"
+                      value={form.aadhaar_number}
+                      onChange={(e) => setForm({ ...form, aadhaar_number: e.target.value })}
+                      placeholder="Aadhaar number"
+                      maxLength="12"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">UAN Number (PF)</label>
+                    <input
+                      type="text"
+                      name="uan_number"
+                      className="form-control"
+                      value={form.uan_number}
+                      onChange={(e) => setForm({ ...form, uan_number: e.target.value })}
+                      placeholder="UAN number"
+                      maxLength="12"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">ESI Number</label>
+                    <input
+                      type="text"
+                      name="esi_number"
+                      className="form-control"
+                      value={form.esi_number}
+                      onChange={(e) => setForm({ ...form, esi_number: e.target.value })}
+                      placeholder="ESI number"
+                      maxLength="17"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Information Section */}
+              <div className="form-section">
+                <h3 className="section-title">Contact Information</h3>
+                <div className="form-grid form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Email Address</label>
+                    <input
+                      type="email"
+                      name="email"
+                      className="form-control"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      placeholder="Email address"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Phone Number</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      className="form-control"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      placeholder="Phone number"
+                      maxLength="15"
+                    />
+                  </div>
+                  <div className="form-group form-group-full">
+                    <label className="form-label">Address</label>
+                    <textarea
+                      name="address"
+                      className="form-control"
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      placeholder="Full address"
+                      rows="3"
+                    />
+                  </div>
+                </div>
+              </div>
             </form>
           )}
         </Modal>

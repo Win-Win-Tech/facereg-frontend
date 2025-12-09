@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Webcam from 'react-webcam';
 import * as blazeface from '@tensorflow-models/blazeface';
 import '@tensorflow/tfjs';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './WebcamCapture.css';
 import { markAttendance, getTodayAttendanceSummary } from './api/attendanceApi';
 import DashboardReports from './DashboardReports';
@@ -57,7 +59,6 @@ const WebcamCapture = () => {
   }, [isCompactNav, overflowOpen]);
 
   const webcamRef = useRef(null);
-  const [toasts, setToasts] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [model, setModel] = useState(null);
   const [started, setStarted] = useState(false);
@@ -66,6 +67,8 @@ const WebcamCapture = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stoppedState, setStoppedState] = useState('idle');
+  const [geolocation, setGeolocation] = useState(null);
+  const [geoError, setGeoError] = useState(null);
 
   const primaryNavItems = useMemo(() => {
     if (!isCompactNav) {
@@ -87,20 +90,8 @@ const WebcamCapture = () => {
   const faceDetectedRef = useRef(false);
   const lastToastTimeRef = useRef({});
 
-  const removeToast = useCallback((id) => {
-    setToasts((prev) =>
-      prev.map((toast) => (toast.id === id ? { ...toast, exiting: true } : toast))
-    );
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, 300);
-  }, []);
-
   const dismissAllToasts = useCallback(() => {
-    setToasts((prev) => prev.map((toast) => ({ ...toast, exiting: true })));
-    setTimeout(() => {
-      setToasts([]);
-    }, 300);
+    toast.dismiss();
   }, []);
 
   const showToast = useCallback(
@@ -113,16 +104,87 @@ const WebcamCapture = () => {
         lastToastTimeRef.current[key] = now;
       }
 
-      const id = Date.now();
-      const toast = { id, type, title, message, variant: options.variant, options };
-      setToasts((prev) => [...prev, toast]);
+      const toastContent = (
+        <div className="custom-toast-content">
+          {options.photo && (
+            <div className="toast-photo-frame">
+              <img
+                src={
+                  options.photo.startsWith('data:') || options.photo.startsWith('http')
+                    ? options.photo
+                    : `data:image/jpeg;base64,${options.photo}`
+                }
+                alt="Face"
+              />
+            </div>
+          )}
+          <div className="toast-text-group">
+            <div className="toast-header">
+              <strong className="toast-title">{title}</strong>
+              {options.timestamp && (
+                <span className="toast-time">
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+            <div className="toast-message">{message}</div>
 
-      setTimeout(() => {
-        removeToast(id);
-      }, options.durationMs ?? 3000);
+            {(options.confidence || options.location) && (
+              <div className="toast-meta">
+                {options.confidence && (
+                  <span className="meta-tag confidence">
+                    <span className="meta-icon">🎯</span> {options.confidence}%
+                  </span>
+                )}
+                {options.location && (
+                  <span className="meta-tag location">
+                    <span className="meta-icon">📍</span>{' '}
+                    {Number(options.location.latitude).toFixed(4)},{' '}
+                    {Number(options.location.longitude).toFixed(4)}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+
+      toast(toastContent, {
+        type: type === 'success' ? 'success' : type === 'error' ? 'error' : 'info',
+        autoClose: options.durationMs ?? 4000,
+        hideProgressBar: true,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        className: `premium-toast-item ${type}`,
+        icon: false,
+      });
     },
-    [removeToast]
+    []
   );
+
+  const speakText = useCallback((text) => {
+    try {
+      if (typeof window === 'undefined' || !window.speechSynthesis) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.rate = 0.9;
+      utter.pitch = 1.2;
+      utter.volume = 1.0;
+      
+      const voices = window.speechSynthesis.getVoices();
+      const femaleVoice = voices.find(voice => voice.name.includes('Female') || voice.name.includes('woman')) || voices.find(voice => voice.name && !voice.name.includes('Male') && !voice.name.includes('man'));
+      if (femaleVoice) {
+        utter.voice = femaleVoice;
+      }
+      
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    } catch (e) {
+      // ignore speech errors
+      console.warn('Speech synthesis failed', e);
+    }
+  }, []);
 
   useEffect(() => {
     if (!started || modelLoadedRef.current) return;
@@ -173,7 +235,14 @@ const WebcamCapture = () => {
       setCameraActive(false);
       faceDetectedRef.current = false;
       setFaceDetected(false);
-      setStoppedState(reason || 'idle');
+      // If the stop reason is an error, don't show the "retry" stopped screen —
+      // reset to the initial idle/start state and keep the user on the mark-attendance card.
+      if (reason === 'error') {
+        setStarted(false);
+        setStoppedState('idle');
+      } else {
+        setStoppedState(reason || 'idle');
+      }
     },
     []
   );
@@ -207,6 +276,39 @@ const WebcamCapture = () => {
     }
   };
 
+  const fetchGeolocation = useCallback(() => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        console.warn('Geolocation not supported by browser');
+        setGeoError('Geolocation not available');
+        resolve(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          const geoData = { latitude, longitude, accuracy };
+          setGeolocation(geoData);
+          setGeoError(null);
+          console.log('Geolocation fetched:', geoData);
+          resolve(geoData);
+        },
+        (error) => {
+          console.warn('Geolocation error:', error.message);
+          setGeoError(error.message);
+          setGeolocation(null);
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  }, []);
+
   const captureAndSend = useCallback(async () => {
     if (!webcamRef.current || isProcessingRef.current) return;
 
@@ -217,60 +319,91 @@ const WebcamCapture = () => {
     setIsProcessing(true);
 
     try {
+      // Fetch geolocation data
+      const geoData = await fetchGeolocation();
+
       const blob = await (await fetch(imageSrc)).blob();
       const formData = new FormData();
       formData.append('image', blob, 'face.jpg');
 
+      // Append geolocation data if available
+      if (geoData) {
+        // Round to 6 decimal places to match Django DecimalField(decimal_places=6)
+        formData.append('latitude', Number(geoData.latitude).toFixed(6));
+        formData.append('longitude', Number(geoData.longitude).toFixed(6));
+        formData.append('accuracy', geoData.accuracy);
+      }
+
       const response = await markAttendance(formData);
       const data = response.data;
-      console.log('data', data);
+      console.log('Attendance response:', data);
 
-      if (data.status === 'Already marked') {
-        const attendanceDetails = await fetchAttendanceDetails(data.employee);
-        const checkinTime = attendanceDetails?.checkin
-          ? new Date(`2000-01-01 ${attendanceDetails.checkin}`).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-          : 'Not marked';
-        const checkoutTime = attendanceDetails?.checkout
-          ? new Date(`2000-01-01 ${attendanceDetails.checkout}`).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-          : 'Not marked';
+      // Treat any valid status/message as success, not just 'successful', 'checkin', or 'checkout'
+      if (data.status && data.message) {
+        let toastTitle = 'Attendance Marked';
+        let toastType = 'success';
+        let toastKey = 'attendance-success';
+        let toastMsg = data.message;
 
-        const message = `Hello ${data.employee}!\nYour attendance for today is already recorded:\n\nCheck-in: ${checkinTime}\nCheck-out: ${checkoutTime}`;
+        // Special handling for already marked
+        if (data.status === 'Already marked') {
+          toastTitle = 'Already Checked In/Out';
+          toastType = 'info';
+          toastKey = 'attendance-already-marked';
+        }
 
-        showToast('info', 'Already Checked In/Out', message, 'attendance-already-marked', {
-          durationMs: 8000,
-          variant: 'hero',
-          photo: data.photo,
-        });
-        stopCameraWith('completed');
-        setTimeout(() => {
-          setStarted(false);
-        }, 2000);
-      } else if (data.status?.includes('successful')) {
-        const isCheckin = data.status.toLowerCase().includes('checkin');
+        // Add geolocation info if available
+        try {
+          if (geoData) {
+            const coords = `${Number(geoData.latitude).toFixed(6)}, ${Number(geoData.longitude).toFixed(6)}`;
+            toastMsg += `\nLocation: ${coords} (±${Math.round(geoData.accuracy)}m)`;
+          }
+          const serverAddress = data?.location?.address;
+          if (serverAddress) {
+            toastMsg += `\nAddress: ${serverAddress}`;
+          }
+        } catch (e) {}
+
         showToast(
-          'success',
-          isCheckin ? 'Check-In Successful' : 'Check-Out Successful',
-          data.message,
-          'attendance-success',
+          toastType,
+          toastTitle,
+          toastMsg,
+          toastKey,
           {
-            durationMs: 6000,
+            durationMs: toastType === 'info' ? 5000 : 6000,
             variant: 'hero',
+            photo: data.photo,
             confidence: data.confidence,
             timestamp: data.timestamp,
-            photo: data.photo,
+            location: geoData || null,
           }
         );
-        stopCameraWith('completed');
+
+        // Speak a short friendly message for accessibility if available
+        try {
+          const employeeName = data?.employee || '';
+          let speakMsg = '';
+          if (data.status === 'Already marked') {
+            speakMsg = employeeName
+              ? `Hi ${employeeName}, your attendance for today is already recorded. Have a Good day.`
+              : 'Your attendance for today is already recorded. Have a Good day.';
+          } else {
+            speakMsg = employeeName
+              ? `Hi ${employeeName}, ${data.message}`
+              : data.message;
+          }
+          speakText(speakMsg);
+        } catch (e) {}
+
+        // After toast is shown, reset to mark attendance screen
         setTimeout(() => {
           setStarted(false);
-        }, 2000);
+          setCameraActive(false);
+          setStoppedState('idle');
+        }, toastType === 'info' ? 5000 : 6000);
+        return;
       } else {
+        console.log('Unknown response status:', data.status);
         showToast('error', 'Unknown Response', 'Received unexpected response from server.', 'attendance-unknown');
       }
 
@@ -296,6 +429,18 @@ const WebcamCapture = () => {
             errTitle = 'Error';
             errMsg = error.response.data.error;
         }
+      } else if (error.response?.data) {
+        // Handle validation errors (e.g., decimal places)
+        const errorData = error.response.data;
+        const errorKeys = Object.keys(errorData);
+
+        if (errorKeys.length > 0) {
+          errTitle = 'Validation Error';
+          // Get first error message
+          const firstErrorKey = errorKeys[0];
+          const firstError = errorData[firstErrorKey];
+          errMsg = Array.isArray(firstError) ? firstError[0] : firstError;
+        }
       }
 
       showToast('error', errTitle, errMsg, 'attendance-error', { durationMs: 10000 });
@@ -304,8 +449,9 @@ const WebcamCapture = () => {
       isProcessingRef.current = false;
       setIsProcessing(false);
     }
-  }, [showToast, stopCameraWith, fetchAttendanceDetails]);
+  }, [showToast, stopCameraWith, fetchAttendanceDetails, fetchGeolocation]);
 
+  // Face detection with auto-capture when face is detected
   useEffect(() => {
     if (!started || !cameraActive || !model) {
       if (faceDetectedRef.current !== false) {
@@ -338,9 +484,9 @@ const WebcamCapture = () => {
           setFaceDetected(detected);
         }
 
-        if (detected && !isProcessingRef.current) {
-          captureAndSend();
-        }
+        // Do NOT auto-capture here to avoid multiple API calls.
+        // Face detection only updates UI state. Capture/send is triggered
+        // explicitly when the user clicks "Mark my attendance".
       } catch (err) {
         console.error('Detection error', err);
         if (faceDetectedRef.current !== false) {
@@ -368,6 +514,48 @@ const WebcamCapture = () => {
     navigate('/attendance');
     setSidebarOpen(false);
   };
+
+
+  const handleMarkAttendance = useCallback(async () => {
+    if (isProcessingRef.current) return;
+
+    dismissAllToasts();
+
+    if (!started) {
+      modelLoadedRef.current = false;
+      setStarted(true);
+      setCameraActive(true);
+      setActiveTab('attendance');
+      navigate('/attendance');
+    }
+    setSidebarOpen(false);
+
+    const waitForVideoReady = () =>
+      new Promise((resolve) => {
+        let tries = 0;
+        const check = () => {
+          const v = webcamRef.current?.video;
+          if (v && v.readyState === 4) return resolve(true);
+          tries += 1;
+          if (tries > 25) return resolve(false); // ~5s
+          setTimeout(check, 200);
+        };
+        check();
+      });
+
+    const ready = await waitForVideoReady();
+    if (!ready) {
+      showToast('error', 'Camera Unavailable', 'Unable to access the camera. Please check permissions and try again.', 'camera-unavailable', {
+        durationMs: 6000,
+      });
+      return;
+    }
+
+    try {
+      await captureAndSend();
+    } catch (e) {
+    }
+  }, [started, navigate, dismissAllToasts, captureAndSend, showToast]);
 
   const handleRetry = useCallback(() => {
     dismissAllToasts();
@@ -532,7 +720,7 @@ const WebcamCapture = () => {
                     <p className="start-description">
                       Activate your camera to launch the real-time face recognition workflow.
                     </p>
-                    <button className="start-attendance-button" onClick={handleStart}>
+                    <button className="start-attendance-button" onClick={handleMarkAttendance}>
                       Mark my attendance
                     </button>
                   </div>
@@ -561,11 +749,11 @@ const WebcamCapture = () => {
                         }}
                       />
 
-                      {model && (
+                      {/* {model && (
                         <div className="detection-frame">
                           <div className="scanning-line"></div>
                         </div>
-                      )}
+                      )} */}
 
                       {isProcessing && (
                         <div className="processing-overlay">
@@ -730,6 +918,23 @@ const WebcamCapture = () => {
           )}
         </main>
       </div>
+
+      {/* Toast container */}
+      <ToastContainer
+        position="bottom-center"
+        autoClose={5000}
+        hideProgressBar
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        toastClassName="premium-toast-glass"
+        bodyClassName="premium-toast-body"
+        style={{ bottom: '100px', zIndex: 9999, padding: '0 16px' }}
+      />
 
       <div className={`bottom-tab-navigation ${isCompactNav ? 'compact' : ''}`}>
         {primaryNavItems.map((item) => (

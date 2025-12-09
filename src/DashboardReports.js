@@ -448,6 +448,9 @@ const DashboardReports = () => {
             <thead>
               <tr>
                 <th>Employee</th>
+                <th>Department</th>
+                <th>Location</th>
+                <th>Shift</th>
                 <th>Present Days</th>
                 <th>Absent Days</th>
                 {monthlyDateColumns.map((column) => (
@@ -458,11 +461,17 @@ const DashboardReports = () => {
             <tbody>
               {filteredMonthlyData.map((employee, index) => {
                 const { present, absent } = getCounts(employee);
+                const dept = employee.department || employee.dept || employee.department_name || '—';
+                const loc = employee.location || employee.location_name || employee.site || '—';
+                const shift = employee.shift || employee.shift_name || '—';
                 return (
                   <tr key={employee.name || index}>
                     <td data-label="Employee">
                       <div className="employee-name">{employee.name || '—'}</div>
                     </td>
+                    <td data-label="Department">{dept}</td>
+                    <td data-label="Location">{loc}</td>
+                    <td data-label="Shift">{shift}</td>
                     <td data-label="Present">{present}</td>
                     <td data-label="Absent">{absent}</td>
                     {monthlyDateColumns.map((column) => {
@@ -476,7 +485,7 @@ const DashboardReports = () => {
                       return (
                         <td key={column.key} data-label={column.label}>
                           <span className={statusClass}>{value}</span>
-                  </td>
+                        </td>
                       );
                     })}
                 </tr>
@@ -569,29 +578,47 @@ const DashboardReports = () => {
                         <thead>
                           <tr>
                             <th>S.No</th>
-                            <th>Employee</th>
-                            <th>Date</th>
+                            <th>Shift Date</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Location</th>
+                            <th>Shift</th>
+                            <th>Shift Start</th>
+                            <th>Shift End</th>
                             <th>Check-in</th>
                             <th>Check-out</th>
                             <th>Duration</th>
+                            <th>Status</th>
+                            <th>Variance</th>
+                            <th>Remarks</th>
+                            <th>Note</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(!Array.isArray(todayData) || todayData.length === 0) ? (
                             <tr>
-                              <td colSpan={6} className="no-data">No attendance data for today</td>
+                              <td colSpan={15} className="no-data">No attendance data for today</td>
                             </tr>
                           ) : (
                             todayData.map((row, index) => (
-                              <tr key={row.employee || index}>
+                              <tr key={row.name || row.id || index}>
                                 <td data-label="S.No">{index + 1}</td>
-                                <td data-label="Employee" className="employee-cell">
-                                  <div className="employee-name">{row.employee}</div>
+                                <td data-label="Shift Date">{row.date || '—'}</td>
+                                <td data-label="Name" className="employee-cell">
+                                  <div className="employee-name">{row.name || '—'}</div>
                                 </td>
-                                <td data-label="Date">{row.date || '—'}</td>
+                                <td data-label="Department">{row.department || '—'}</td>
+                                <td data-label="Location">{row.location || '—'}</td>
+                                <td data-label="Shift">{row.shift || '—'}</td>
+                                <td data-label="Shift Start">{row.shift_start || '—'}</td>
+                                <td data-label="Shift End">{row.shift_end || '—'}</td>
                                 <td data-label="Check-in">{row.checkin || '—'}</td>
                                 <td data-label="Check-out">{row.checkout || '—'}</td>
                                 <td data-label="Duration">{row.duration || '—'}</td>
+                                <td data-label="Status">{row.status || '—'}</td>
+                                <td data-label="Variance">{row.variance || '—'}</td>
+                                <td data-label="Remarks">{row.remarks || '—'}</td>
+                                <td data-label="Note">{row.note || '—'}</td>
                               </tr>
                             ))
                           )}
