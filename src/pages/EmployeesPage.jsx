@@ -257,6 +257,11 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     return employees.filter((emp) => String(emp.location_id) === String(filterLocation));
   }, [employees, filterLocation, isSuperAdmin, userLocationId]);
 
+  const filteredSitesForAssignment = useMemo(() => {
+    if (!selectedEmployeeForAssign) return [];
+    return sites.filter((site) => String(site.location) === String(selectedEmployeeForAssign.location_id));
+  }, [sites, selectedEmployeeForAssign]);
+
   const openCreateModal = () => {
     setModalLoading(false);
     setForm({
@@ -710,28 +715,34 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
               <div className="form-group">
                 <label className="form-label">Select Sites</label>
                 <div className="checkbox-group">
-                  {sites.map((site) => (
-                    <label key={site.id} className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={assignmentForm.site_ids.includes(site.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setAssignmentForm({
-                              ...assignmentForm,
-                              site_ids: [...assignmentForm.site_ids, site.id],
-                            });
-                          } else {
-                            setAssignmentForm({
-                              ...assignmentForm,
-                              site_ids: assignmentForm.site_ids.filter((id) => id !== site.id),
-                            });
-                          }
-                        }}
-                      />
-                      <span className="checkbox-text">{site.site_name || site.name}</span>
-                    </label>
-                  ))}
+                  {filteredSitesForAssignment.length > 0 ? (
+                    filteredSitesForAssignment.map((site) => (
+                      <label key={site.id} className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={assignmentForm.site_ids.includes(site.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setAssignmentForm({
+                                ...assignmentForm,
+                                site_ids: [...assignmentForm.site_ids, site.id],
+                              });
+                            } else {
+                              setAssignmentForm({
+                                ...assignmentForm,
+                                site_ids: assignmentForm.site_ids.filter((id) => id !== site.id),
+                              });
+                            }
+                          }}
+                        />
+                        <span className="checkbox-text">{site.site_name || site.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <div style={{ textAlign: 'center', color: '#9ca3af', padding: '1rem' }}>
+                      No sites available for this location
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
