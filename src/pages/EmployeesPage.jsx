@@ -17,6 +17,7 @@ import {
   getUserSites,
 } from '../api/employeeApi';
 import { getLocations } from '../api/locationApi';
+import { getPayslipConfigs } from '../api/payslipApi';
 
 const dataURLtoFile = (dataUrl, filename) => {
   const arr = dataUrl.split(',');
@@ -88,6 +89,7 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
   });
   const [existingAssignmentId, setExistingAssignmentId] = useState(null);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [payslipConfigs, setPayslipConfigs] = useState([]);
 
   const activeLocations = useMemo(
     () => locations.filter((loc) => !loc.is_deleted),
@@ -165,11 +167,26 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     }
   }, []);
 
+  const loadPayslipConfigsData = useCallback(async () => {
+    try {
+      const res = await getPayslipConfigs();
+      if (Array.isArray(res.data)) {
+        setPayslipConfigs(res.data);
+      } else {
+        setPayslipConfigs([]);
+      }
+    } catch (error) {
+      console.error('Failed to load payslip configs:', error);
+      setPayslipConfigs([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadLocations();
     loadEmployees();
     loadShiftsAndSites();
-  }, [loadLocations, loadEmployees, loadShiftsAndSites]);
+    loadPayslipConfigsData();
+  }, [loadLocations, loadEmployees, loadShiftsAndSites, loadPayslipConfigsData]);
 
   useEffect(() => {
     if (!showModal) {
@@ -392,9 +409,6 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     }
     if (modalMode === 'create' && !form.profilePhoto) {
       next.profile_photo = 'Profile photo is required';
-    }
-    if (form.payslip_field_config_id && !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(form.payslip_field_config_id)) {
-      next.payslip_field_config_id = 'Payslip Config ID must be a valid UUID.';
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -828,82 +842,84 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
               {/* Photo Section */}
               <div className="form-section">
                 <h3 className="section-title">Photography</h3>
-                
-                <div className="form-group">
-                  <label className="form-label">
-                    Employee Face Photo <span className="required-indicator">*</span>
-                  </label>
-                  <div className="face-capture-section" ref={faceSectionRef}>
-                    <div className="face-capture-preview">
-                      {showCamera ? (
-                        <Webcam
-                          audio={false}
-                          ref={webcamRef}
-                          screenshotFormat="image/jpeg"
-                          videoConstraints={{ facingMode: 'user' }}
-                        />
-                      ) : facePreview ? (
-                        <img src={facePreview} alt="Face preview" />
+                <div className="photo-grid">
+                  <div className="form-group">
+                    <label className="form-label">
+                      Face Photo <span className="required-indicator">*</span>
+                    </label>
+                    <div className="face-capture-section" ref={faceSectionRef}>
+                      <div className="face-capture-preview">
+                        {showCamera ? (
+                          <Webcam
+                            audio={false}
+                            ref={webcamRef}
+                            screenshotFormat="image/jpeg"
+                            videoConstraints={{ facingMode: 'user' }}
+                          />
+                        ) : facePreview ? (
+                          <img src={facePreview} alt="Face preview" />
+                        ) : (
+                          <div className="face-placeholder">
+                            <span>📷</span>
+                            <p>No face</p>
+                          </div>
+                        )}
+                      </div>
+                      {modalMode === 'edit' && (
+                        <span className="face-note">
+                          Capture new photo to update recognition.
+                        </span>
+                      )}
+                      <div className="face-capture-actions">
+                        {showCamera ? (
+                          <>
+                            <button type="button" className="btn-primary" onClick={handleCaptureFace}>
+                              Capture
+                            </button>
+                            <button type="button" className="btn-secondary" onClick={() => setShowCamera(false)}>
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button type="button" className="btn-primary" onClick={handleStartCamera}>
+                              {facePreview ? 'Retake' : 'Capture'}
+                            </button>
+                            {modalMode === 'edit' && originalFacePreview && facePreview !== originalFacePreview && (
+                              <button type="button" className="btn-secondary" onClick={handleUseOriginalFace}>
+                                Use Saved
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {errors.face_image && <div className="form-error">{errors.face_image}</div>}
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Profile Photo</label>
+                    <div className="profile-preview">
+                      {profilePreview ? (
+                        <img src={profilePreview} alt="Profile preview" />
                       ) : (
                         <div className="face-placeholder">
-                          <span>📷</span>
-                          <p>No face captured yet</p>
+                          <span>📸</span>
+                          <p>No photo</p>
                         </div>
                       )}
                     </div>
-                    {modalMode === 'edit' && (
-                      <span className="face-note">
-                        Capture a new face photo if you want to update recognition data.
-                      </span>
-                    )}
-                    <div className="face-capture-actions">
-                      {showCamera ? (
-                        <>
-                          <button type="button" className="btn-primary" onClick={handleCaptureFace}>
-                            Capture
-                          </button>
-                          <button type="button" className="btn-secondary" onClick={() => setShowCamera(false)}>
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button type="button" className="btn-primary" onClick={handleStartCamera}>
-                            {facePreview ? 'Retake face photo' : 'Capture face photo'}
-                          </button>
-                          {modalMode === 'edit' && originalFacePreview && facePreview !== originalFacePreview && (
-                            <button type="button" className="btn-secondary" onClick={handleUseOriginalFace}>
-                              Use saved face photo
-                            </button>
-                          )}
-                        </>
-                      )}
+                    <div className="file-input-wrapper" style={{ marginTop: '0.4rem' }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfilePhotoChange}
+                        className="form-control"
+                        style={{ fontSize: '0.8rem', padding: '0.4rem 0.6rem' }}
+                      />
                     </div>
-                    {errors.face_image && <div className="form-error">{errors.face_image}</div>}
+                    {errors.profile_photo && <div className="form-error">{errors.profile_photo}</div>}
                   </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Employee Profile Photo</label>
-                  <div className="file-input-wrapper">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleProfilePhotoChange}
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="profile-preview">
-                    {profilePreview ? (
-                      <img src={profilePreview} alt="Profile preview" />
-                    ) : (
-                      <div className="face-placeholder">
-                        <span>📸</span>
-                        <p>No profile photo selected</p>
-                      </div>
-                    )}
-                  </div>
-                  {errors.profile_photo && <div className="form-error">{errors.profile_photo}</div>}
                 </div>
               </div>
 
@@ -924,22 +940,27 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Payslip Config ID</label>
-                    <input
-                      type="text"
+                    <label className="form-label">Payslip Config</label>
+                    <select
                       name="payslip_field_config_id"
                       className="form-control"
                       value={form.payslip_field_config_id}
                       onChange={(e) => {
                         const value = e.target.value;
                         setForm({ ...form, payslip_field_config_id: value });
-                        // Clear error if valid
-                        if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value)) {
+                        // Clear error when selection is made
+                        if (value) {
                           setErrors((prev) => ({ ...prev, payslip_field_config_id: undefined }));
                         }
                       }}
-                      placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
-                    />
+                    >
+                      <option value="">-- Select Payslip Config --</option>
+                      {payslipConfigs.map((config) => (
+                        <option key={config.id} value={config.id}>
+                          {config.config_name}
+                        </option>
+                      ))}
+                    </select>
                     {errors.payslip_field_config_id && (
                       <div className="form-error">{errors.payslip_field_config_id}</div>
                     )}
