@@ -99,7 +99,7 @@
 
 .payslip-content {
   background: white;
-  padding: 2rem;
+  padding: 1rem;
   border-radius: 1rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
@@ -420,17 +420,17 @@
     font-size: 1.5rem;
   }
 
-  .payslip-content {
-    padding: 1rem;
-  }
+  /* .payslip-content {
+    padding: 0 1rem;
+  } */
 
   .payslip-tabs {
-    padding: 0 1rem;
+    /* padding: 0 1rem; */
     overflow-x: auto;
   }
 
   .payslip-tab {
-    padding: 0.75rem 1rem;
+    /* padding: 0.75rem 1rem; */
     font-size: 0.9rem;
   }
 
@@ -438,9 +438,9 @@
     grid-template-columns: 1fr;
   }
 
-  .payslip-form {
-    padding: 1.5rem;
-  }
+  /* .payslip-form {
+    padding: 1.5rem 1.5rem;
+  } */
 
   .payslip-form-row {
     grid-template-columns: 1fr;
@@ -485,7 +485,7 @@
   }
 
   .payslip-tab {
-    padding: 0.75rem;
+    /* padding: 0.75rem; */
     font-size: 0.85rem;
     white-space: nowrap;
   }

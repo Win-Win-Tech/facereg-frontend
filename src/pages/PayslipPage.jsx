@@ -189,6 +189,7 @@ const PayslipPage = ({ onNotify }) => {
   };
 
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   const loadEmployees = async () => {
     setEmployeesLoading(true);
@@ -301,44 +302,62 @@ const PayslipPage = ({ onNotify }) => {
     try {
       const res = await downloadPayslipPDF(id);
       
-      // Check content type to determine if it's a PDF or JSON error
-      const contentType = res.headers['content-type'] || '';
-      
-      if (contentType.includes('application/pdf') || res.data instanceof Blob) {
-        // It's a PDF file
-        const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename || `payslip-${id}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        if (onNotify) onNotify('success', 'Payslip', 'PDF downloaded successfully');
-      } else if (contentType.includes('application/json')) {
-        // It's a JSON error response
-        const errorMsg = res.data?.detail || 'PDF file not available';
-        if (onNotify) onNotify('error', 'Payslip', errorMsg);
-      } else {
-        // Unknown content type, try to download anyway
-        const blob = new Blob([res.data], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename || `payslip-${id}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+      // Check if response status indicates success
+      if (res.status >= 200 && res.status < 300) {
+        // Check content type to determine if it's a PDF
+        const contentType = res.headers['content-type'] || '';
+        
+        if (contentType.includes('application/pdf') || res.data instanceof Blob) {
+          // It's a PDF file - verify it's actually a PDF by checking size and type
+          const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'application/pdf' });
+          
+          // Check if blob might be JSON error (small size or wrong type)
+          if (blob.size < 100) {
+            // Might be JSON error, try to read it
+            const text = await blob.text();
+            try {
+              const json = JSON.parse(text);
+              if (json.detail || json.error) {
+                if (onNotify) onNotify('error', 'Payslip', json.detail || json.error);
+                return;
+              }
+            } catch {
+              // Not JSON, proceed with download
+            }
+          }
+          
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename || `payslip-${id}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          if (onNotify) onNotify('success', 'Payslip', 'PDF downloaded successfully');
+          return;
+        }
       }
+      
+      // If we get here, something went wrong
+      if (onNotify) onNotify('error', 'Payslip', 'Unexpected response from server');
     } catch (err) {
       console.error('Download error:', err);
       let errorMsg = 'Failed to download PDF';
       
       if (err.response) {
-        // Try to parse error message from response
-        if (err.response.data) {
+        // For blob responses, we need to read the blob to get the error message
+        if (err.response.data instanceof Blob) {
+          try {
+            const text = await err.response.data.text();
+            const json = JSON.parse(text);
+            errorMsg = json.detail || json.error || errorMsg;
+          } catch {
+            // If parsing fails, it might actually be a PDF but with error status
+            errorMsg = 'PDF download failed. Please try again.';
+          }
+        } else if (err.response.data) {
+          // Regular JSON error response
           if (typeof err.response.data === 'string') {
             try {
               const parsed = JSON.parse(err.response.data);
@@ -458,12 +477,12 @@ const PayslipPage = ({ onNotify }) => {
 
   const tabItems = useMemo(
     () => [
-      { id: 'records', label: 'Records' },
-      { id: 'generate', label: 'Generate' },
-      { id: 'configs', label: 'Field Configs' },
-      { id: 'fields', label: 'Fields' },
       { id: 'templates', label: 'Templates' },
-      { id: 'reports', label: 'Reports' },
+      { id: 'fields', label: 'Fields' },
+      { id: 'configs', label: 'Field Configs' },
+      { id: 'generate', label: 'Generate' },
+      { id: 'records', label: 'Records' },
+      // { id: 'reports', label: 'Reports' },
     ],
     []
   );
@@ -702,7 +721,7 @@ const PayslipPage = ({ onNotify }) => {
           </div>
         )}
 
-        {tab === 'reports' && (
+        {/* {tab === 'reports' && (
           <div>
             <h3 className="payslip-section-title">📊 Payslip Reports</h3>
             <p style={{ color: '#667085', marginBottom: '1.5rem' }}>Generate comprehensive payroll summaries and export data for analysis.</p>
@@ -713,7 +732,7 @@ const PayslipPage = ({ onNotify }) => {
             </div>
             {loading && <div className="payslip-loading">Generating reports…</div>}
           </div>
-        )}
+        )} */}
 
         {tab === 'configs' && (
           <div>
@@ -724,13 +743,16 @@ const PayslipPage = ({ onNotify }) => {
             ) : (
               <div>
                 <div className="payslip-actions">
-                  <button className="btn-primary" onClick={resetConfigForm}>➕ New Config</button>
+                  <button className="btn-primary" onClick={() => {
+                    resetConfigForm();
+                    setShowConfigModal(true);
+                  }}>➕ New Config</button>
                 </div>
                 <div className="payslip-table-wrapper">
                   <table className="payslip-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
+                        {/* <th>ID</th> */}
                         <th>Name</th>
                         <th>Description</th>
                         <th>Location</th>
@@ -742,19 +764,23 @@ const PayslipPage = ({ onNotify }) => {
                     <tbody>
                       {configs.map((c) => (
                         <tr key={c.id}>
-                          <td><strong>#{c.id}</strong></td>
+                          {/* <td><strong>#{c.id}</strong></td> */}
                           <td>{c.config_name}</td>
                           <td>{c.description || '—'}</td>
                           <td>{c.location_name || c.location_id || '—'}</td>
                           <td>{c.is_active ? '✅ Yes' : '❌ No'}</td>
                           <td><span style={{ background: '#667eea30', padding: '4px 8px', borderRadius: 4 }}>{c.fields_count ?? '0'}</span></td>
                           <td>
-                            <button className="btn-small" onClick={() => { setEditingConfig(c); setConfigForm({
-                              config_name: c.config_name || '',
-                              description: c.description || '',
-                              location_id: c.location || c.location_id || '',
-                              is_active: c.is_active ?? true,
-                            }); }}>✏️ Edit</button>
+                            <button className="btn-small" onClick={() => { 
+                              setEditingConfig(c);
+                              setConfigForm({
+                                config_name: c.config_name || '',
+                                description: c.description || '',
+                                location_id: c.location || c.location_id || '',
+                                is_active: c.is_active ?? true,
+                              });
+                              setShowConfigModal(true);
+                            }}>✏️ Edit</button>
                             <button className="btn-small" onClick={() => handleDeleteConfig(c.id)}>🗑️ Delete</button>
                           </td>
                         </tr>
@@ -762,71 +788,76 @@ const PayslipPage = ({ onNotify }) => {
                     </tbody>
                   </table>
                 </div>
-
-                <div style={{ marginTop: '2rem' }}>
-                  <h4 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '1rem' }}>
-                    {editingConfig?.id ? '✏️ Edit Configuration' : '➕ Create New Configuration'}
-                  </h4>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleCreateOrUpdateConfig({
-                        config_name: configForm.config_name,
-                        description: configForm.description,
-                        location_id: configForm.location_id,
-                        is_active: configForm.is_active,
-                      });
-                    }}
-                    className="payslip-form"
-                  >
-                    <label>
-                      Config Name *
-                      <input
-                        value={configForm.config_name}
-                        onChange={(e) => setConfigForm({ ...configForm, config_name: e.target.value })}
-                        placeholder="e.g. Standard, Executive"
-                        required
-                      />
-                    </label>
-                    <label>
-                      Description
-                      <input
-                        value={configForm.description}
-                        onChange={(e) => setConfigForm({ ...configForm, description: e.target.value })}
-                        placeholder="Optional description"
-                      />
-                    </label>
-                    <label>
-                      Location
-                      <select
-                        value={configForm.location_id}
-                        onChange={(e) => setConfigForm({ ...configForm, location_id: e.target.value })}
-                        disabled={locationsLoading}
-                      >
-                        <option value="">— Select Location (Optional) —</option>
-                        {locations.map((loc) => (
-                          <option key={loc.id} value={loc.id}>
-                            {loc.name}
-                          </option>
-                        ))}
-                      </select>
-                      {locationsLoading && <small style={{ color: '#667085' }}>Loading locations...</small>}
-                    </label>
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={configForm.is_active}
-                        onChange={(e) => setConfigForm({ ...configForm, is_active: e.target.checked })}
-                      />
-                      Active
-                    </label>
-                    <div className="payslip-form-actions">
-                      <button type="submit" className="btn-primary">Save Config</button>
-                      <button type="button" className="btn-secondary" onClick={resetConfigForm}>Cancel</button>
-                    </div>
-                  </form>
-                </div>
               </div>
+            )}
+            {showConfigModal && (
+              <Modal
+                title={editingConfig?.id ? '✏️ Edit Field Configuration' : '➕ New Field Configuration'}
+                onClose={() => setShowConfigModal(false)}
+              >
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleCreateOrUpdateConfig({
+                      config_name: configForm.config_name,
+                      description: configForm.description,
+                      location_id: configForm.location_id,
+                      is_active: configForm.is_active,
+                    });
+                    setShowConfigModal(false);
+                  }}
+                  className="payslip-form"
+                >
+                  <label>
+                    Config Name *
+                    <input
+                      value={configForm.config_name}
+                      onChange={(e) => setConfigForm({ ...configForm, config_name: e.target.value })}
+                      placeholder="e.g. Standard, Executive"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Description
+                    <input
+                      value={configForm.description}
+                      onChange={(e) => setConfigForm({ ...configForm, description: e.target.value })}
+                      placeholder="Optional description"
+                    />
+                  </label>
+                  <label>
+                    Location
+                    <select
+                      value={configForm.location_id}
+                      onChange={(e) => setConfigForm({ ...configForm, location_id: e.target.value })}
+                      disabled={locationsLoading}
+                    >
+                      <option value="">— Select Location (Optional) —</option>
+                      {locations.map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.name}
+                        </option>
+                      ))}
+                    </select>
+                    {locationsLoading && <small style={{ color: '#667085' }}>Loading locations...</small>}
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={configForm.is_active}
+                      onChange={(e) => setConfigForm({ ...configForm, is_active: e.target.checked })}
+                    />
+                    Active
+                  </label>
+                  <div className="payslip-form-actions">
+                    <button type="submit" className="btn-primary">Save Config</button>
+                    <button type="button" className="btn-secondary" onClick={() => {
+                      resetConfigForm();
+                      setShowConfigModal(false);
+                    }}>Cancel</button>
+                  </div>
+                </form>
+              </Modal>
             )}
           </div>
         )}
@@ -1035,7 +1066,7 @@ const PayslipPage = ({ onNotify }) => {
                   <table className="payslip-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
+                        {/* <th>ID</th> */}
                         <th>Location</th>
                         <th>Company</th>
                         <th>Header</th>
@@ -1045,7 +1076,7 @@ const PayslipPage = ({ onNotify }) => {
                     <tbody>
                       {templates.map((t) => (
                         <tr key={t.id}>
-                          <td><strong>#{t.id}</strong></td>
+                          {/* <td><strong>#{t.id}</strong></td> */}
                           <td>{t.location_name || t.location_id}</td>
                           <td>{t.company_name || '—'}</td>
                           <td>{t.header_text || '—'}</td>
