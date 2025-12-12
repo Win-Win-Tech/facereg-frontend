@@ -12,6 +12,7 @@ import useAuth from './hooks/useAuth';
 import UsersPage from './pages/UsersPage';
 import OrganisationPage from './pages/OrganisationPage';
 import EmployeesPage from './pages/EmployeesPage';
+import PayslipPage from './pages/PayslipPage';
 
 const WebcamCapture = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const WebcamCapture = () => {
       { id: 'dashboard', icon: '🏠', label: 'Dashboard', route: '/dashboard' },
       { id: 'attendance', icon: '📸', label: 'Attendance', route: '/attendance' },
       { id: 'employees', icon: '👥', label: 'Employees', route: '/employees' },
+      { id: 'payslip', icon: '💰', label: 'Payslip', route: '/payslip' },
     ];
     if (isSuperAdmin) {
       items.push(
@@ -810,6 +812,10 @@ const WebcamCapture = () => {
 
           {activeTab === 'employees' && (
             <EmployeesPage onNotify={showToast} isSuperAdmin={isSuperAdmin} auth={auth} />
+          )}
+
+          {activeTab === 'payslip' && (
+            <PayslipPage onNotify={showToast} isSuperAdmin={isSuperAdmin} auth={auth} />
           )}
 
           {isSuperAdmin && activeTab === 'users' && (

@@ -24,7 +24,7 @@ const OrganisationPage = ({ onNotify }) => {
   const [sitesLoading, setSitesLoading] = useState(false);
   const [showSiteModal, setShowSiteModal] = useState(false);
   const [siteModalMode, setSiteModalMode] = useState('create');
-  const [siteForm, setSiteForm] = useState({ id: null, site_name: '', latitude: '', longitude: '', distance_meters: '' });
+  const [siteForm, setSiteForm] = useState({ id: null, site_name: '', latitude: '', longitude: '', distance_meters: '', location_id: '' });
   const [siteSubmitting, setSiteSubmitting] = useState(false);
   const [siteErrors, setSiteErrors] = useState({});
 
@@ -187,7 +187,7 @@ const OrganisationPage = ({ onNotify }) => {
 
   // Site handlers
   const openCreateSiteModal = () => {
-    setSiteForm({ id: null, site_name: '', latitude: '', longitude: '', distance_meters: '' });
+    setSiteForm({ id: null, site_name: '', latitude: '', longitude: '', distance_meters: '', location_id: '' });
     setSiteErrors({});
     setSiteModalMode('create');
     setShowSiteModal(true);
@@ -200,6 +200,7 @@ const OrganisationPage = ({ onNotify }) => {
       latitude: site.latitude || '',
       longitude: site.longitude || '',
       distance_meters: site.distance_meters || '',
+      location_id: site.location || '',
     });
     setSiteErrors({});
     setSiteModalMode('edit');
@@ -208,6 +209,7 @@ const OrganisationPage = ({ onNotify }) => {
 
   const validateSite = () => {
     const next = {};
+    if (!siteForm.location_id) next.location_id = 'Location is required';
     if (!siteForm.site_name.trim()) next.site_name = 'Site name is required';
     if (!siteForm.latitude) next.latitude = 'Latitude is required';
     if (!siteForm.longitude) next.longitude = 'Longitude is required';
@@ -227,6 +229,7 @@ const OrganisationPage = ({ onNotify }) => {
         latitude: parseFloat(siteForm.latitude),
         longitude: parseFloat(siteForm.longitude),
         distance_meters: parseFloat(siteForm.distance_meters),
+        location: siteForm.location_id,
       };
 
       if (siteModalMode === 'create') {
@@ -526,6 +529,7 @@ const OrganisationPage = ({ onNotify }) => {
                       <thead>
                         <tr>
                           <th>Site Name</th>
+                          <th>Location</th>
                           <th>Latitude</th>
                           <th>Longitude</th>
                           <th>Radius (m)</th>
@@ -537,6 +541,7 @@ const OrganisationPage = ({ onNotify }) => {
                         {sites.map((site) => (
                           <tr key={site.id}>
                             <td data-label="Site Name">{site.site_name}</td>
+                            <td data-label="Location Name">{site.location_name}</td>
                             <td data-label="Latitude">{site.latitude}</td>
                             <td data-label="Longitude">{site.longitude}</td>
                             <td data-label="Radius (m)">{site.distance_meters}</td>
@@ -806,6 +811,22 @@ const OrganisationPage = ({ onNotify }) => {
           }
         >
           <form id="site-form" className="management-form" onSubmit={handleSiteSubmit}>
+            <label>
+              Location
+              <select
+                name="location_id"
+                value={siteForm.location_id}
+                onChange={(e) => setSiteForm((prev) => ({ ...prev, location_id: e.target.value }))}
+              >
+                <option value="">Select location</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+              {siteErrors.location_id && <div className="form-error">{siteErrors.location_id}</div>}
+            </label>
             <label>
               Site Name
               <input
