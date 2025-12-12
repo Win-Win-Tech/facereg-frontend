@@ -432,6 +432,13 @@ const DashboardReports = () => {
       return <div className="no-data">No monthly data for selected filters.</div>;
     }
 
+    const isHalfDayValue = (v) => {
+      if (!v) return false;
+      if (typeof v !== 'string') return false;
+      const s = v.trim().toLowerCase();
+      return s === 'ha' || s === 'h' || s.includes('half');
+    };
+
     const getCounts = (employee) => {
       let present = 0;
       let absent = 0;
@@ -475,16 +482,20 @@ const DashboardReports = () => {
                     <td data-label="Present">{present}</td>
                     <td data-label="Absent">{absent}</td>
                     {monthlyDateColumns.map((column) => {
-                      const value = employee[column.key] || '—';
+                      const raw = employee[column.key];
+                      const value = raw == null || raw === '' ? '—' : raw;
+                      const displayValue = isHalfDayValue(String(value)) ? 'HA' : value;
                       const statusClass =
-                        value === 'P'
+                        displayValue === 'P'
                           ? 'status-pill present'
-                          : value === 'A'
+                          : displayValue === 'A'
                           ? 'status-pill absent'
+                          : isHalfDayValue(String(value))
+                          ? 'status-pill half-day'
                           : 'status-pill neutral';
                       return (
                         <td key={column.key} data-label={column.label}>
-                          <span className={statusClass}>{value}</span>
+                          <span className={statusClass}>{displayValue}</span>
                         </td>
                       );
                     })}
