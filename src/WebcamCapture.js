@@ -18,6 +18,8 @@ const WebcamCapture = () => {
   const location = useLocation();
   const { auth, logout } = useAuth();
   const isSuperAdmin = auth?.role === 'superadmin';
+  const isAdmin = auth?.role === 'admin';
+  const canSeeOrganisation = isSuperAdmin || isAdmin;
   const sidebarItems = useMemo(() => {
     const items = [
       { id: 'dashboard', icon: '🏠', label: 'Dashboard', route: '/dashboard' },
@@ -27,8 +29,10 @@ const WebcamCapture = () => {
     if (isSuperAdmin) {
       items.push(
         { id: 'users', icon: '👤', label: 'Users', route: '/users' },
-        { id: 'organisation', icon: '🏢', label: 'Organisation', route: '/organisation' },
       );
+    }
+    if (canSeeOrganisation) {
+      items.push({ id: 'organisation', icon: '🏢', label: 'Organisation', route: '/organisation' });
     }
     items.push(
       { id: 'reports', icon: '📊', label: 'Reports', route: '/reports' },
@@ -816,7 +820,7 @@ const WebcamCapture = () => {
             <UsersPage onNotify={showToast} isSuperAdmin={isSuperAdmin} />
           )}
 
-          {isSuperAdmin && activeTab === 'organisation' && (
+          {canSeeOrganisation && activeTab === 'organisation' && (
             <OrganisationPage onNotify={showToast} />
           )}
 

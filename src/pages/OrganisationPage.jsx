@@ -6,8 +6,10 @@ import { getSites, createSite, updateSite, deleteSite } from '../api/siteApi';
 import { getShifts, createShift, updateShift, deleteShift } from '../api/shiftApi';
 import { getAssignments, createAssignment, bulkCreateAssignments } from '../api/assignmentApi';
 import { getEmployees } from '../api/employeeApi';
+import { useAuthContext } from '../contexts/AuthContext';
 
 const OrganisationPage = ({ onNotify }) => {
+  const { locationId, role } = useAuthContext();
   const [activeTab, setActiveTab] = useState('locations');
   
   // Locations state
@@ -45,7 +47,7 @@ const OrganisationPage = ({ onNotify }) => {
   const [bulkAssignForm, setBulkAssignForm] = useState({
     employee_ids: [],
     shift_id: '',
-    location_id: '',
+    location_id: locationId || '',
     site_ids: [],
   });
   const [bulkAssignSubmitting, setBulkAssignSubmitting] = useState(false);
@@ -54,7 +56,9 @@ const OrganisationPage = ({ onNotify }) => {
   const loadLocations = useCallback(async () => {
     setLocationsLoading(true);
     try {
-      const res = await getLocations({ include_deleted: false });
+      // If user has a location_id, show only that location; otherwise show all (super admin)
+      const params = locationId ? { id: locationId, include_deleted: false } : { include_deleted: false };
+      const res = await getLocations(params);
       if (Array.isArray(res.data)) {
         setLocations(res.data);
       }
@@ -63,21 +67,27 @@ const OrganisationPage = ({ onNotify }) => {
     } finally {
       setLocationsLoading(false);
     }
-  }, [onNotify]);
+  }, [locationId, onNotify]);
 
   const loadSites = useCallback(async () => {
     setSitesLoading(true);
     try {
-      const res = await getSites();
+      // If user has a location_id, show only sites for that location
+      const params = locationId ? { location: locationId } : {};
+      const res = await getSites(params);
       if (Array.isArray(res.data)) {
-        setSites(res.data);
+        // Client-side filter to ensure only user's location sites are shown
+        const filteredSites = locationId
+          ? res.data.filter((site) => String(site.location) === String(locationId))
+          : res.data;
+        setSites(filteredSites);
       }
     } catch (error) {
       onNotify?.('error', 'Sites', 'Failed to load sites', undefined, { durationMs: 4000 });
     } finally {
       setSitesLoading(false);
     }
-  }, [onNotify]);
+  }, [locationId, onNotify]);
 
   const loadShifts = useCallback(async () => {
     setShiftsLoading(true);
@@ -187,7 +197,7 @@ const OrganisationPage = ({ onNotify }) => {
 
   // Site handlers
   const openCreateSiteModal = () => {
-    setSiteForm({ id: null, site_name: '', latitude: '', longitude: '', distance_meters: '', location_id: '' });
+    setSiteForm({ id: null, site_name: '', latitude: '', longitude: '', distance_meters: '', location_id: locationId || '' });
     setSiteErrors({});
     setSiteModalMode('create');
     setShowSiteModal(true);
@@ -633,6 +643,7 @@ const OrganisationPage = ({ onNotify }) => {
                       <select
                         value={bulkAssignForm.location_id}
                         onChange={(e) => setBulkAssignForm((prev) => ({ ...prev, location_id: e.target.value }))}
+                        disabled={locationId !== null && locationId !== undefined}
                       >
                         <option value="">Select location</option>
                         {locations.map((loc) => (
@@ -817,6 +828,7 @@ const OrganisationPage = ({ onNotify }) => {
                 name="location_id"
                 value={siteForm.location_id}
                 onChange={(e) => setSiteForm((prev) => ({ ...prev, location_id: e.target.value }))}
+                disabled={locationId !== null && locationId !== undefined}
               >
                 <option value="">Select location</option>
                 {locations.map((loc) => (
