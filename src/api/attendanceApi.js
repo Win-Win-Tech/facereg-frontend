@@ -1,9 +1,7 @@
 import httpClient from './httpClient';
 
 export const markAttendance = (formData) =>
-  httpClient.post('/attendance/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  httpClient.post('/attendance/', formData);
 
 export const getTodayAttendanceSummary = (params) =>
   httpClient.get('/attendance-summary/', { params });

@@ -56,6 +56,39 @@ const WebcamCapture = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const reverseGeocode = useCallback(async (lat, lon) => {
+    try {
+      if (lat == null || lon == null) return null;
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
+        lat
+      )}&lon=${encodeURIComponent(lon)}&accept-language=en`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) return null;
+      const json = await res.json();
+      // Prefer display_name, otherwise try address components
+      if (json && json.display_name) return json.display_name;
+      if (json && json.address) return Object.values(json.address).join(', ');
+      return null;
+    } catch (e) {
+      // Network error or aborted — return null silently
+      // eslint-disable-next-line no-console
+      console.debug('Reverse geocode failed', e && e.message ? e.message : e);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!isCompactNav && overflowOpen) {
       setOverflowOpen(false);
@@ -289,27 +322,63 @@ const WebcamCapture = () => {
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          const geoData = { latitude, longitude, accuracy };
-          setGeolocation(geoData);
-          setGeoError(null);
-          console.log('Geolocation fetched:', geoData);
-          resolve(geoData);
-        },
-        (error) => {
-          console.warn('Geolocation error:', error.message);
-          setGeoError(error.message);
-          setGeolocation(null);
-          resolve(null);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
+      (async () => {
+        let permState = null;
+        try {
+          if (navigator.permissions && navigator.permissions.query) {
+            const status = await navigator.permissions.query({ name: 'geolocation' });
+            permState = status.state;
+            console.debug('Geolocation permission state:', status.state);
+            if (status.state === 'denied') {
+              setGeoError('Permission denied');
+              setGeolocation(null);
+              resolve(null);
+              return;
+            }
+          }
+        } catch (e) {
+        
+          console.debug('Permissions API check failed', e);
         }
-      );
+
+        const attempt = (highAccuracy, timeout) =>
+          new Promise((res) => {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+                const geoData = { latitude, longitude, accuracy, permState };
+                setGeolocation(geoData);
+                setGeoError(null);
+                // eslint-disable-next-line no-console
+                console.debug('Geolocation fetched:', geoData);
+                res({ success: true, data: geoData });
+              },
+              (error) => {
+                console.warn('Geolocation error:', error.code, error.message);
+                res({ success: false, error });
+              },
+              { enableHighAccuracy: highAccuracy, timeout, maximumAge: 0 }
+            );
+          });
+
+        let result = await attempt(true, 10000);
+        if (!result.success) {
+          if (permState === 'granted') {
+            result = await attempt(false, 20000);
+          }
+        }
+
+        if (result.success) {
+          resolve(result.data);
+          return;
+        }
+
+        const err = result.error;
+        const errMsg = err ? `(${err.code}) ${err.message}` : 'Unknown geolocation error';
+        setGeoError(errMsg);
+        setGeolocation(null);
+        resolve(null);
+      })();
     });
   }, []);
 
@@ -325,19 +394,52 @@ const WebcamCapture = () => {
     try {
       // Fetch geolocation data
       const geoData = await fetchGeolocation();
+      if (!geoData) {
+        let permState = null;
+        try {
+          if (navigator.permissions && navigator.permissions.query) {
+            const perm = await navigator.permissions.query({ name: 'geolocation' });
+            permState = perm.state;
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        const details = geoError ? ` (${geoError})` : '';
+        const permMsg = permState ? ` Permission: ${permState}.` : '';
+        showToast(
+          'error',
+          'Location Needed',
+          `Enable location on your device and browser to mark attendance${details}${permMsg} If already allowed, refresh the page or check site permissions (HTTPS/localhost required).`,
+          'attendance-location-missing',
+          { durationMs: 10000 }
+        );
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+        return;
+      }
 
       const blob = await (await fetch(imageSrc)).blob();
       const formData = new FormData();
       formData.append('image', blob, 'face.jpg');
 
       // Append geolocation data if available
-      if (geoData) {
-        // Round to 6 decimal places to match Django DecimalField(decimal_places=6)
-        formData.append('latitude', Number(geoData.latitude).toFixed(6));
-        formData.append('longitude', Number(geoData.longitude).toFixed(6));
-        formData.append('accuracy', geoData.accuracy);
+      // Round to 6 decimal places to match Django DecimalField(decimal_places=6)
+      formData.append('latitude', Number(geoData.latitude).toFixed(6));
+      formData.append('longitude', Number(geoData.longitude).toFixed(6));
+      formData.append('accuracy', geoData.accuracy);
+
+      try {
+        const addr = await reverseGeocode(geoData.latitude, geoData.longitude);
+        if (addr) {
+          formData.append('address', addr);
+        }
+      } catch (e) {
       }
 
+      try {
+        console.debug('attendance formData entries:', Array.from(formData.entries()));
+      } catch (e) {}
       const response = await markAttendance(formData);
       const data = response.data;
       console.log('Attendance response:', data);
@@ -443,7 +545,6 @@ const WebcamCapture = () => {
 
         if (errorKeys.length > 0) {
           errTitle = 'Validation Error';
-          // Get first error message
           const firstErrorKey = errorKeys[0];
           const firstError = errorData[firstErrorKey];
           errMsg = Array.isArray(firstError) ? firstError[0] : firstError;
