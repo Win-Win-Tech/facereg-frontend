@@ -804,13 +804,13 @@ const WebcamCapture = () => {
                 </div>
               </div>
 
-              <div className="cta-section">
+              {/* <div className="cta-section">
                 <button className="primary-cta-button" onClick={handleStart}>
                   <span className="cta-icon">🚀</span>
                   <span>Start Marking Attendance</span>
                 </button>
                 <p className="cta-hint">Camera permission required to begin recognition</p>
-              </div>
+              </div> */}
             </div>
           )}
 
