@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
-import './ManagementPages.css';
+import DataTable from '../components/DataTable';
+import '../styles/ManagementPages.css';
 import { getUsers, createUser, updateUser, deleteUser } from '../api/userApi';
 import { getLocations } from '../api/locationApi';
 
@@ -168,6 +169,23 @@ const UsersPage = ({ onNotify, isSuperAdmin }) => {
     }
   };
 
+  const userTableColumns = [
+    { key: 'id', label: 'ID' },
+    { key: 'name', label: 'Name', render: (value) => value || '—' },
+    { key: 'email', label: 'Email', render: (value) => value || '—' },
+    { key: 'role', label: 'Role' },
+    {
+      key: 'location_id',
+      label: 'Location',
+      render: (value, row) => (row.role === 'admin' ? locationName(row.location_id) : '—'),
+    },
+  ];
+
+  const userTableActions = [
+    { label: 'Edit', className: 'edit', onClick: openEditModal },
+    { label: 'Delete', className: 'delete', onClick: handleDelete },
+  ];
+
   return (
     <div className="management-page">
       <div className="management-header">
@@ -196,37 +214,14 @@ const UsersPage = ({ onNotify, isSuperAdmin }) => {
         ) : users.length === 0 ? (
           <div className="management-empty">No users found.</div>
         ) : (
-          <div className="management-table-wrapper limited mobile-auto">
-            <table className="management-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Location</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td data-label="Name">{user.name || '—'}</td>
-                    <td data-label="Email">{user.email || '—'}</td>
-                    <td data-label="Role">{user.role}</td>
-                    <td data-label="Location">{user.role === 'admin' ? locationName(user.location_id) : '—'}</td>
-                    <td data-label="Actions" className="actions">
-                      <button type="button" className="edit" onClick={() => openEditModal(user)}>
-                        Edit
-                      </button>
-                      <button type="button" className="delete" onClick={() => handleDelete(user)}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={userTableColumns}
+            data={users}
+            isLoading={loading}
+            emptyMessage="No users found."
+            actions={userTableActions}
+            rowKey="id"
+          />
         )}
         </div>
       </div>

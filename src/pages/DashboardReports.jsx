@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import './Reports.css';
+import '../styles/Reports.css';
 import {
   getTodayAttendanceSummary,
   exportTodayAttendanceSummary,
@@ -381,6 +381,56 @@ const DashboardReports = () => {
     });
   }, [monthlyData, selectedEmployeeName, statusFilter]);
 
+  // Helper: consider these values missing
+  const isMissing = (v) => v == null || v === '' || String(v).trim() === '—' || String(v).trim() === '';
+
+  // Calculate attendance status based on shift and work hours
+  const calculateAttendanceStatus = (row) => {
+    // Check if there's no shift
+    const hasNoShift = isMissing(row.shift);
+
+    if (hasNoShift) {
+      // If no shift: require both check-in and check-out; otherwise absent
+      if (isMissing(row.checkin) || isMissing(row.checkout)) {
+        return 'Absent';
+      }
+
+      // Parse duration (assumed to be in HH:MM format). Fallback to 0 if unparsable.
+      let durationHours = 0;
+      if (row.duration && typeof row.duration === 'string') {
+        const parts = row.duration.split(':');
+        const h = parseFloat(parts[0]) || 0;
+        const m = parseFloat(parts[1]) || 0;
+        durationHours = h + m / 60;
+      } else if (typeof row.duration === 'number') {
+        durationHours = row.duration;
+      }
+
+      if (durationHours < 4) {
+        return 'Absent';
+      } else if (durationHours >= 4 && durationHours <= 6) {
+        return 'Half Day Absent';
+      } else if (durationHours > 6 && durationHours < 12) {
+        return 'Early Checkout';
+      } else if (durationHours > 12) {
+        return 'Delayed Checkout';
+      }
+
+      return 'Present';
+    }
+
+    if (isMissing(row.checkin) || isMissing(row.checkout)) {
+      return 'Absent';
+    }
+
+    return row.status || 'Present';
+  };
+
+  const getRemarks = (row) => {
+    if (isMissing(row.checkout) && !isMissing(row.checkin)) return 'No checkout';
+    return row.remarks || '—';
+  };
+
   const parseDateKey = (dateKey, year, monthNumber) => {
     try {
       const [day, monthName] = dateKey.split('-');
@@ -602,13 +652,13 @@ const DashboardReports = () => {
                             <th>Status</th>
                             <th>Variance</th>
                             <th>Remarks</th>
-                            <th>Note</th>
+                            {/* <th>Note</th> */}
                           </tr>
                         </thead>
                         <tbody>
                           {(!Array.isArray(todayData) || todayData.length === 0) ? (
                             <tr>
-                              <td colSpan={15} className="no-data">No attendance data for today</td>
+                              <td colSpan={14} className="no-data">No attendance data for today</td>
                             </tr>
                           ) : (
                             todayData.map((row, index) => (
@@ -626,10 +676,10 @@ const DashboardReports = () => {
                                 <td data-label="Check-in">{row.checkin || '—'}</td>
                                 <td data-label="Check-out">{row.checkout || '—'}</td>
                                 <td data-label="Duration">{row.duration || '—'}</td>
-                                <td data-label="Status">{row.status || '—'}</td>
+                                <td data-label="Status">{calculateAttendanceStatus(row)}</td>
                                 <td data-label="Variance">{row.variance || '—'}</td>
-                                <td data-label="Remarks">{row.remarks || '—'}</td>
-                                <td data-label="Note">{row.note || '—'}</td>
+                                <td data-label="Remarks">{getRemarks(row)}</td>
+                                {/* <td data-label="Note">{row.note || '—'}</td> */}
                               </tr>
                             ))
                           )}

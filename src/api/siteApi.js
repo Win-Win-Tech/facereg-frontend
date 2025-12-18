@@ -14,3 +14,6 @@ export const deleteSite = (id) =>
 
 export const getSiteDetail = (id) =>
   httpClient.get(`/sites/${id}/`);
+
+export const assignShiftsToSite = (siteId, payload) =>
+  httpClient.post(`/sites/${siteId}/bulk-shifts/`, payload);

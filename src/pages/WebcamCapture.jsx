@@ -1,17 +1,17 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import Webcam from 'react-webcam';
 import * as blazeface from '@tensorflow-models/blazeface';
 import '@tensorflow/tfjs';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import './WebcamCapture.css';
-import { markAttendance, getTodayAttendanceSummary } from './api/attendanceApi';
-import DashboardReports from './DashboardReports';
-import useAuth from './hooks/useAuth';
-import UsersPage from './pages/UsersPage';
-import OrganisationPage from './pages/OrganisationPage';
-import EmployeesPage from './pages/EmployeesPage';
+import '../styles/WebcamCapture.css';
+import { markAttendance } from '../api/attendanceApi';
+import useAuth from '../hooks/useAuth';
+import UsersPage from './UsersPage';
+import OrganisationLayout from '../pages/organisation/OrganisationLayout';
+import ReportsLayout from './reports/ReportsLayout';
+import EmployeesPage from './EmployeesPage';
 
 const WebcamCapture = () => {
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ const WebcamCapture = () => {
   const sidebarItems = useMemo(() => {
     const items = [
       { id: 'dashboard', icon: '🏠', label: 'Dashboard', route: '/dashboard' },
-      { id: 'attendance', icon: '📸', label: 'Attendance', route: '/attendance' },
+      // { id: 'attendance', icon: '📸', label: 'Attendance', route: '/attendance' },
       { id: 'employees', icon: '👥', label: 'Employees', route: '/employees' },
     ];
     if (isSuperAdmin) {
@@ -32,7 +32,7 @@ const WebcamCapture = () => {
       );
     }
     if (canSeeOrganisation) {
-      items.push({ id: 'organisation', icon: '🏢', label: 'Organisation', route: '/organisation' });
+      items.push({ id: 'organisation', icon: '🏢', label: 'Organisation', route: '/organisation/locations' });
     }
     items.push(
       { id: 'reports', icon: '📊', label: 'Reports', route: '/reports' },
@@ -77,13 +77,11 @@ const WebcamCapture = () => {
 
       if (!res.ok) return null;
       const json = await res.json();
-      // Prefer display_name, otherwise try address components
       if (json && json.display_name) return json.display_name;
       if (json && json.address) return Object.values(json.address).join(', ');
       return null;
     } catch (e) {
-      // Network error or aborted — return null silently
-      // eslint-disable-next-line no-console
+      
       console.debug('Reverse geocode failed', e && e.message ? e.message : e);
       return null;
     }
@@ -126,6 +124,8 @@ const WebcamCapture = () => {
   const modelLoadedRef = useRef(false);
   const faceDetectedRef = useRef(false);
   const lastToastTimeRef = useRef({});
+  const lastCaptureTimeRef = useRef(0);
+  const captureTimeoutRef = useRef(null);
 
   const dismissAllToasts = useCallback(() => {
     toast.dismiss();
@@ -284,35 +284,6 @@ const WebcamCapture = () => {
     []
   );
 
-  useEffect(() => {
-    const rawPath = location.pathname === '/' ? '/dashboard' : location.pathname;
-    const matched = sidebarItems.find(
-      (item) => rawPath === item.route || rawPath.startsWith(`${item.route}/`)
-    );
-    if (matched) {
-      setActiveTab(matched.id);
-      if (matched.id !== 'attendance') {
-        if (cameraActive) {
-          stopCamera();
-        }
-        setStarted(false);
-        setStoppedState('idle');
-      }
-      return;
-    }
-  }, [location.pathname, sidebarItems, cameraActive, stopCamera]);
-
-  const fetchAttendanceDetails = async (employeeName) => {
-    try {
-      const { data } = await getTodayAttendanceSummary();
-      if (!Array.isArray(data)) return null;
-      return data.find((record) => record.employee === employeeName);
-    } catch (error) {
-      console.error('Error fetching attendance details:', error);
-      return null;
-    }
-  };
-
   const fetchGeolocation = useCallback(() => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
@@ -381,6 +352,45 @@ const WebcamCapture = () => {
       })();
     });
   }, []);
+  
+  useEffect(() => {
+    const rawPath = location.pathname === '/' ? '/dashboard' : location.pathname;
+    let matched = sidebarItems.find(
+      (item) => rawPath === item.route || rawPath.startsWith(`${item.route}/`)
+    );
+    
+    // Handle /organisation/* and /reports/* paths that don't match exactly
+    if (!matched && rawPath.startsWith('/organisation')) {
+      matched = sidebarItems.find((item) => item.id === 'organisation');
+    } else if (!matched && rawPath.startsWith('/reports')) {
+      matched = sidebarItems.find((item) => item.id === 'reports');
+    }
+    
+    if (matched) {
+      setActiveTab(matched.id);
+      if (matched.id === 'attendance') {
+        // Auto-start camera when entering attendance tab
+        if (!started) {
+          modelLoadedRef.current = false;
+          setStarted(true);
+          setCameraActive(true);
+          setStoppedState('idle');
+          // Fetch geolocation early
+          fetchGeolocation();
+        }
+      } else {
+        if (cameraActive) {
+          stopCamera();
+        }
+        setStarted(false);
+        setStoppedState('idle');
+      }
+      return;
+    }
+  }, [location.pathname, sidebarItems, cameraActive, stopCamera, started, fetchGeolocation]);
+
+
+  
 
   const captureAndSend = useCallback(async () => {
     if (!webcamRef.current || isProcessingRef.current) return;
@@ -392,8 +402,11 @@ const WebcamCapture = () => {
     setIsProcessing(true);
 
     try {
-      // Fetch geolocation data
-      const geoData = await fetchGeolocation();
+      // Use existing geolocation or fetch if not available
+      let geoData = geolocation;
+      if (!geoData) {
+        geoData = await fetchGeolocation();
+      }
       if (!geoData) {
         let permState = null;
         try {
@@ -414,8 +427,12 @@ const WebcamCapture = () => {
           'attendance-location-missing',
           { durationMs: 10000 }
         );
-        isProcessingRef.current = false;
-        setIsProcessing(false);
+        // Set cooldown to prevent immediate retry
+        setTimeout(() => {
+          isProcessingRef.current = false;
+          setIsProcessing(false);
+          lastCaptureTimeRef.current = Date.now(); // Set to current time to enforce 2-minute cooldown
+        }, 10000);
         return;
       }
 
@@ -429,13 +446,7 @@ const WebcamCapture = () => {
       formData.append('longitude', Number(geoData.longitude).toFixed(6));
       formData.append('accuracy', geoData.accuracy);
 
-      try {
-        const addr = await reverseGeocode(geoData.latitude, geoData.longitude);
-        if (addr) {
-          formData.append('address', addr);
-        }
-      } catch (e) {
-      }
+      // Address is optional - backend can reverse geocode if needed
 
       try {
         console.debug('attendance formData entries:', Array.from(formData.entries()));
@@ -494,32 +505,34 @@ const WebcamCapture = () => {
           let speakMsg = '';
           if (data.status === 'Already marked') {
             speakMsg = employeeName
-              ? `Hi ${employeeName}, your attendance for today is already recorded. Have a Good day.`
+              ? `your attendance for today is already recorded. Have a Good day.`
               : 'Your attendance for today is already recorded. Have a Good day.';
           } else {
             speakMsg = employeeName
-              ? `Hi ${employeeName}, ${data.message}`
+              ? ` ${data.message}`
               : data.message;
           }
           speakText(speakMsg);
         } catch (e) {}
 
-        // After toast is shown, reset to mark attendance screen
+      
         setTimeout(() => {
-          setStarted(false);
-          setCameraActive(false);
-          setStoppedState('idle');
-        }, toastType === 'info' ? 5000 : 6000);
+          isProcessingRef.current = false;
+          setIsProcessing(false);
+          lastCaptureTimeRef.current = Date.now(); // Set to current time to enforce 2-minute cooldown
+          // Keep camera active for next attendance
+        }, 1000);
         return;
       } else {
         console.log('Unknown response status:', data.status);
-        showToast('error', 'Unknown Response', 'Received unexpected response from server.', 'attendance-unknown');
+        showToast('error', 'Unknown Response', 'Received unexpected response from server.', 'attendance-unknown', { durationMs: 6000 });
+        // Set cooldown to prevent immediate retry
+        setTimeout(() => {
+          isProcessingRef.current = false;
+          setIsProcessing(false);
+          lastCaptureTimeRef.current = Date.now(); // Set to current time to enforce 2-minute cooldown
+        }, 6000);
       }
-
-      setTimeout(() => {
-        isProcessingRef.current = false;
-        setIsProcessing(false);
-      }, 2000);
     } catch (error) {
       let errMsg = 'Server connection failed';
       let errTitle = 'Connection Error';
@@ -539,7 +552,6 @@ const WebcamCapture = () => {
             errMsg = error.response.data.error;
         }
       } else if (error.response?.data) {
-        // Handle validation errors (e.g., decimal places)
         const errorData = error.response.data;
         const errorKeys = Object.keys(errorData);
 
@@ -554,17 +566,23 @@ const WebcamCapture = () => {
       showToast('error', errTitle, errMsg, 'attendance-error', { durationMs: 10000 });
 
       stopCameraWith('error');
-      isProcessingRef.current = false;
-      setIsProcessing(false);
+      setTimeout(() => {
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+        lastCaptureTimeRef.current = Date.now(); 
+      }, 10000);
     }
-  }, [showToast, stopCameraWith, fetchAttendanceDetails, fetchGeolocation]);
+  }, [showToast, stopCameraWith, fetchGeolocation, geolocation, geoError]);
 
-  // Face detection with auto-capture when face is detected
   useEffect(() => {
     if (!started || !cameraActive || !model) {
       if (faceDetectedRef.current !== false) {
         faceDetectedRef.current = false;
         setFaceDetected(false);
+      }
+      if (captureTimeoutRef.current) {
+        clearTimeout(captureTimeoutRef.current);
+        captureTimeoutRef.current = null;
       }
       return;
     }
@@ -592,9 +610,28 @@ const WebcamCapture = () => {
           setFaceDetected(detected);
         }
 
-        // Do NOT auto-capture here to avoid multiple API calls.
-        // Face detection only updates UI state. Capture/send is triggered
-        // explicitly when the user clicks "Mark my attendance".
+        if (detected && !isProcessingRef.current && !captureTimeoutRef.current) {
+          const now = Date.now();
+          const cooldownMs = 10000; 
+          if (now - lastCaptureTimeRef.current > cooldownMs) {
+            captureTimeoutRef.current = setTimeout(async () => {
+              if (faceDetectedRef.current && !isProcessingRef.current && webcamRef.current?.video?.readyState === 4) {
+                try {
+                  await captureAndSend();
+                } catch (e) {
+                  console.error('Auto-capture error', e);
+                  lastCaptureTimeRef.current = Date.now();
+                  isProcessingRef.current = false;
+                  setIsProcessing(false);
+                }
+              }
+              captureTimeoutRef.current = null;
+            }, 2000);
+          }
+        } else if (!detected && captureTimeoutRef.current) {
+          clearTimeout(captureTimeoutRef.current);
+          captureTimeoutRef.current = null;
+        }
       } catch (err) {
         console.error('Detection error', err);
         if (faceDetectedRef.current !== false) {
@@ -604,10 +641,14 @@ const WebcamCapture = () => {
       }
     };
 
-    const interval = setInterval(detectFace, 1000);
+    const interval = setInterval(detectFace, 900); // Check every 500ms for faster detection
 
     return () => {
       clearInterval(interval);
+      if (captureTimeoutRef.current) {
+        clearTimeout(captureTimeoutRef.current);
+        captureTimeoutRef.current = null;
+      }
     };
   }, [started, cameraActive, model, captureAndSend]);
 
@@ -623,54 +664,11 @@ const WebcamCapture = () => {
     setSidebarOpen(false);
   };
 
-
-  const handleMarkAttendance = useCallback(async () => {
-    if (isProcessingRef.current) return;
-
-    dismissAllToasts();
-
-    if (!started) {
-      modelLoadedRef.current = false;
-      setStarted(true);
-      setCameraActive(true);
-      setActiveTab('attendance');
-      navigate('/attendance');
-    }
-    setSidebarOpen(false);
-
-    const waitForVideoReady = () =>
-      new Promise((resolve) => {
-        let tries = 0;
-        const check = () => {
-          const v = webcamRef.current?.video;
-          if (v && v.readyState === 4) return resolve(true);
-          tries += 1;
-          if (tries > 25) return resolve(false); // ~5s
-          setTimeout(check, 200);
-        };
-        check();
-      });
-
-    const ready = await waitForVideoReady();
-    if (!ready) {
-      showToast('error', 'Camera Unavailable', 'Unable to access the camera. Please check permissions and try again.', 'camera-unavailable', {
-        durationMs: 6000,
-      });
-      return;
-    }
-
-    try {
-      await captureAndSend();
-    } catch (e) {
-    }
-  }, [started, navigate, dismissAllToasts, captureAndSend, showToast]);
-
   const handleRetry = useCallback(() => {
     dismissAllToasts();
-    setStarted(false);
-    setCameraActive(false);
     isProcessingRef.current = false;
     setIsProcessing(false);
+    lastCaptureTimeRef.current = 0; // Reset to allow immediate retry on manual retry
     setStoppedState('idle');
   }, [dismissAllToasts]);
 
@@ -818,22 +816,7 @@ const WebcamCapture = () => {
 
           {activeTab === 'attendance' && (
             <div className="attendance-screen">
-              {!started ? (
-                <div className="attendance-start">
-                  <div className="start-card">
-                    <div className="start-icon-wrapper">
-                      <div className="start-icon">📸</div>
-                    </div>
-                    <h2 className="start-title">Ready to Mark Attendance</h2>
-                    <p className="start-description">
-                      Activate your camera to launch the real-time face recognition workflow.
-                    </p>
-                    <button className="start-attendance-button" onClick={handleMarkAttendance}>
-                      Mark my attendance
-                    </button>
-                  </div>
-                </div>
-              ) : (
+              {started && (
                 <>
                   {cameraActive ? (
                     <div className="camera-container">
@@ -921,14 +904,12 @@ const WebcamCapture = () => {
             <UsersPage onNotify={showToast} isSuperAdmin={isSuperAdmin} />
           )}
 
-          {canSeeOrganisation && activeTab === 'organisation' && (
-            <OrganisationPage onNotify={showToast} />
+          {canSeeOrganisation && location.pathname.startsWith('/organisation') && (
+            <OrganisationLayout onNotify={showToast} />
           )}
 
-          {activeTab === 'reports' && (
-            <div className="reports-embedded">
-              <DashboardReports />
-            </div>
+          {canSeeOrganisation && location.pathname.startsWith('/reports') && (
+            <ReportsLayout onNotify={showToast} />
           )}
 
           {activeTab === 'about' && (

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '../components/Modal';
-import './ManagementPages.css';
+import AssignmentModal from '../components/AssignmentModal';
+import DataTable from '../components/DataTable';
+import '../styles/ManagementPages.css';
 import Webcam from 'react-webcam';
 import {
   getEmployees,
@@ -86,6 +88,8 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
   const [assignmentForm, setAssignmentForm] = useState({
     shift_id: '',
     site_ids: [],
+    assignment_from_date: new Date().toISOString().split('T')[0],
+    assignment_to_date: new Date().toISOString().split('T')[0],
   });
   const [existingAssignmentId, setExistingAssignmentId] = useState(null);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
@@ -278,6 +282,27 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     if (!selectedEmployeeForAssign) return [];
     return sites.filter((site) => String(site.location) === String(selectedEmployeeForAssign.location_id));
   }, [sites, selectedEmployeeForAssign]);
+
+  const availableAssignmentShifts = useMemo(() => {
+    // If no sites selected, show all shifts
+    if (assignmentForm.site_ids.length === 0) {
+      return shifts;
+    }
+
+    // Show only shifts assigned to the selected sites
+    const selectedSiteIds = new Set(assignmentForm.site_ids);
+    const shiftIds = new Set();
+    sites.forEach((site) => {
+      if (selectedSiteIds.has(site.id)) {
+        if (Array.isArray(site.shifts) && site.shifts.length > 0) {
+          site.shifts.forEach((s) => shiftIds.add(s.id));
+        } else if (Array.isArray(site.shift_ids) && site.shift_ids.length > 0) {
+          site.shift_ids.forEach((id) => shiftIds.add(id));
+        }
+      }
+    });
+    return shifts.filter((s) => shiftIds.has(s.id));
+  }, [assignmentForm.site_ids, shifts, sites]);
 
   const openCreateModal = () => {
     setModalLoading(false);
@@ -517,7 +542,12 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
 
   const openAssignModal = async (employee) => {
     setSelectedEmployeeForAssign(employee);
-    setAssignmentForm({ shift_id: '', site_ids: [] });
+    setAssignmentForm({ 
+      shift_id: '', 
+      site_ids: [],
+      assignment_from_date: new Date().toISOString().split('T')[0],
+      assignment_to_date: new Date().toISOString().split('T')[0],
+    });
     setExistingAssignmentId(null);
     setShowAssignModal(true);
     
@@ -540,11 +570,30 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
         const assignment = assignmentsRes.data[0];
         setExistingAssignmentId(assignment.id);
         
-        // Get shift_id from assignment (could be named shift, shift_id, or have nested id)
-        const shiftId = assignment.shift_id || assignment.shift || '';
+        // Extract shift_id - handle multiple formats from backend
+        let shiftId = '';
+        if (assignment.shift) {
+          // If shift is an object with id property
+          shiftId = assignment.shift.id || assignment.shift;
+        } else if (assignment.shift_id) {
+          shiftId = assignment.shift_id;
+        }
+        
+        // Convert to string for consistency
+        shiftId = shiftId ? String(shiftId) : '';
+        
+        console.log('Loaded assignment:', { 
+          assignmentId: assignment.id, 
+          rawShift: assignment.shift, 
+          rawShiftId: assignment.shift_id,
+          extractedShiftId: shiftId 
+        });
+        
         setAssignmentForm({
           shift_id: shiftId,
           site_ids: assignment.site_ids || [],
+          assignment_from_date: assignment.assignment_from_date || new Date().toISOString().split('T')[0],
+          assignment_to_date: assignment.assignment_to_date || new Date().toISOString().split('T')[0],
         });
       }
 
@@ -566,17 +615,18 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     }
   };
 
-  const handleAssignmentSubmit = async (event) => {
-    event.preventDefault();
+  const handleAssignmentSubmit = async () => {
     if (!selectedEmployeeForAssign) return;
     
     setAssignmentLoading(true);
     try {
-      // Create assignment payload with user, location, and shift fields (as required by backend)
+      // If no shift selected, send null for dates
       const assignmentPayload = {
         user: selectedEmployeeForAssign.id,
         location: selectedEmployeeForAssign.location_id,
         shift: assignmentForm.shift_id || null,
+        assignment_from_date: assignmentForm.shift_id ? (assignmentForm.assignment_from_date || null) : null,
+        assignment_to_date: assignmentForm.shift_id ? (assignmentForm.assignment_to_date || null) : null,
       };
 
       // Update or create assignment based on whether it exists
@@ -594,7 +644,11 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
         site_ids: assignmentForm.site_ids,
       });
 
-      onNotify?.('success', 'Assignment Saved', 'Shift and sites assigned successfully.');
+      const dateRange = assignmentForm.shift_id 
+        ? `from ${assignmentForm.assignment_from_date} to ${assignmentForm.assignment_to_date}`
+        : 'with no shift';
+      
+      onNotify?.('success', 'Assignment Saved', `Shift assigned ${dateRange}.`);
       setShowAssignModal(false);
       setSelectedEmployeeForAssign(null);
       setExistingAssignmentId(null);
@@ -618,6 +672,22 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
       onNotify?.('error', 'Delete Failed', 'Unable to delete employee.', undefined, { durationMs: 5000 });
     }
   };
+
+  const employeeTableColumns = [
+    { key: 'id', label: 'ID' },
+    { key: 'name', label: 'Name', render: (value) => value || '—' },
+    {
+      key: 'location_id',
+      label: 'Location',
+      render: (value, row) => locationName(row.location_id),
+    },
+  ];
+
+  const employeeTableActions = [
+    { label: 'Edit', className: 'edit', onClick: openEditModal },
+    { label: 'Assign', className: 'assign', onClick: openAssignModal },
+    { label: 'Delete', className: 'delete', onClick: handleDelete },
+  ];
 
   return (
     <div className="management-page">
@@ -652,116 +722,30 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
         ) : filteredEmployees.length === 0 ? (
           <div className="management-empty">No employees found.</div>
         ) : (
-          <div className="management-table-wrapper limited mobile-auto">
-            <table className="management-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Location</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEmployees.map((employee) => (
-                  <tr key={employee.id}>
-                    <td data-label="ID">{employee.id}</td>
-                    <td data-label="Name">{employee.name || '—'}</td>
-                    <td data-label="Location">{locationName(employee.location_id)}</td>
-                    <td data-label="Actions" className="actions">
-                      <button type="button" className="edit" onClick={() => openEditModal(employee)}>
-                        Edit
-                      </button>
-                      <button type="button" className="assign" onClick={() => openAssignModal(employee)}>
-                        Assign
-                      </button>
-                      <button type="button" className="delete" onClick={() => handleDelete(employee)}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={employeeTableColumns}
+            data={filteredEmployees}
+            isLoading={loading}
+            emptyMessage="No employees found."
+            actions={employeeTableActions}
+            rowKey="id"
+          />
         )}
         </div>
       </div>
 
       {showAssignModal && selectedEmployeeForAssign && (
-        <Modal
-          title={`${existingAssignmentId ? 'Update' : 'Assign'} Shift & Sites - ${selectedEmployeeForAssign.name}`}
+        <AssignmentModal
+          isOpen={showAssignModal}
           onClose={() => setShowAssignModal(false)}
-          actions={
-            <>
-              <button type="button" className="secondary" onClick={() => setShowAssignModal(false)}>
-                Cancel
-              </button>
-              <button type="submit" form="assignment-form" disabled={assignmentLoading}>
-                {assignmentLoading ? 'Saving…' : existingAssignmentId ? 'Update' : 'Assign'}
-              </button>
-            </>
-          }
-        >
-          <form id="assignment-form" className="assignment-form" onSubmit={handleAssignmentSubmit}>
-            <div className="form-section">
-              <h3 className="section-title">Shift Assignment</h3>
-              <div className="form-group">
-                <label className="form-label">Select Shift</label>
-                <select
-                  name="shift_id"
-                  className="form-control"
-                  value={assignmentForm.shift_id}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, shift_id: e.target.value })}
-                >
-                  <option value="">No Shift</option>
-                  {shifts.map((shift) => (
-                    <option key={shift.id} value={shift.id}>
-                      {shift.shift_name || shift.name} ({shift.start_time} - {shift.end_time})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-section">
-              <h3 className="section-title">Site Assignment</h3>
-              <div className="form-group">
-                <label className="form-label">Select Sites</label>
-                <div className="checkbox-group">
-                  {filteredSitesForAssignment.length > 0 ? (
-                    filteredSitesForAssignment.map((site) => (
-                      <label key={site.id} className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={assignmentForm.site_ids.includes(site.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setAssignmentForm({
-                                ...assignmentForm,
-                                site_ids: [...assignmentForm.site_ids, site.id],
-                              });
-                            } else {
-                              setAssignmentForm({
-                                ...assignmentForm,
-                                site_ids: assignmentForm.site_ids.filter((id) => id !== site.id),
-                              });
-                            }
-                          }}
-                        />
-                        <span className="checkbox-text">{site.site_name || site.name}</span>
-                      </label>
-                    ))
-                  ) : (
-                    <div style={{ textAlign: 'center', color: '#9ca3af', padding: '1rem' }}>
-                      No sites available for this location
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </form>
-        </Modal>
+          title={`${existingAssignmentId ? 'Update' : 'Assign'} Shift & Sites - ${selectedEmployeeForAssign.name}`}
+          formData={assignmentForm}
+          onFormChange={setAssignmentForm}
+          availableShifts={availableAssignmentShifts}
+          availableSites={filteredSitesForAssignment}
+          isSubmitting={assignmentLoading}
+          onSubmit={handleAssignmentSubmit}
+        />
       )}
 
       {showModal && (

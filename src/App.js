@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from './components/PrivateRoute';
 import LoginPage from './pages/LoginPage';
-import WebcamCapture from './WebcamCapture';
+import WebcamCapture from '../src/pages/WebcamCapture';
 
 function App() {
   return (
