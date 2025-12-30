@@ -12,6 +12,8 @@ import UsersPage from './UsersPage';
 import OrganisationLayout from '../pages/organisation/OrganisationLayout';
 import ReportsLayout from './reports/ReportsLayout';
 import EmployeesPage from './EmployeesPage';
+import LeaveManagementLayout from './leavemanagement/LeaveManagementLayout';
+import PayslipLayout from './payslip/PayslipLayout';
 
 const WebcamCapture = () => {
   const navigate = useNavigate();
@@ -36,6 +38,8 @@ const WebcamCapture = () => {
     }
     items.push(
       { id: 'reports', icon: '📊', label: 'Reports', route: '/reports' },
+      // { id: 'leave-management', icon: '📅', label: 'Leave Management', route: '/leave-management' },
+      { id: 'payslip', icon: '💵', label: 'Payslip', route: '/payslip' },
       { id: 'about', icon: 'ℹ️', label: 'About', route: '/about' },
     );
     return items;
@@ -81,7 +85,7 @@ const WebcamCapture = () => {
       if (json && json.address) return Object.values(json.address).join(', ');
       return null;
     } catch (e) {
-      
+
       console.debug('Reverse geocode failed', e && e.message ? e.message : e);
       return null;
     }
@@ -208,13 +212,13 @@ const WebcamCapture = () => {
       utter.rate = 0.9;
       utter.pitch = 1.2;
       utter.volume = 1.0;
-      
+
       const voices = window.speechSynthesis.getVoices();
       const femaleVoice = voices.find(voice => voice.name.includes('Female') || voice.name.includes('woman')) || voices.find(voice => voice.name && !voice.name.includes('Male') && !voice.name.includes('man'));
       if (femaleVoice) {
         utter.voice = femaleVoice;
       }
-      
+
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utter);
     } catch (e) {
@@ -308,7 +312,7 @@ const WebcamCapture = () => {
             }
           }
         } catch (e) {
-        
+
           console.debug('Permissions API check failed', e);
         }
 
@@ -352,20 +356,20 @@ const WebcamCapture = () => {
       })();
     });
   }, []);
-  
+
   useEffect(() => {
     const rawPath = location.pathname === '/' ? '/dashboard' : location.pathname;
     let matched = sidebarItems.find(
       (item) => rawPath === item.route || rawPath.startsWith(`${item.route}/`)
     );
-    
+
     // Handle /organisation/* and /reports/* paths that don't match exactly
     if (!matched && rawPath.startsWith('/organisation')) {
       matched = sidebarItems.find((item) => item.id === 'organisation');
     } else if (!matched && rawPath.startsWith('/reports')) {
       matched = sidebarItems.find((item) => item.id === 'reports');
     }
-    
+
     if (matched) {
       setActiveTab(matched.id);
       if (matched.id === 'attendance') {
@@ -390,7 +394,7 @@ const WebcamCapture = () => {
   }, [location.pathname, sidebarItems, cameraActive, stopCamera, started, fetchGeolocation]);
 
 
-  
+
 
   const captureAndSend = useCallback(async () => {
     if (!webcamRef.current || isProcessingRef.current) return;
@@ -450,7 +454,7 @@ const WebcamCapture = () => {
 
       try {
         console.debug('attendance formData entries:', Array.from(formData.entries()));
-      } catch (e) {}
+      } catch (e) { }
       const response = await markAttendance(formData);
       const data = response.data;
       console.log('Attendance response:', data);
@@ -479,7 +483,7 @@ const WebcamCapture = () => {
           if (serverAddress) {
             toastMsg += `\nAddress: ${serverAddress}`;
           }
-        } catch (e) {}
+        } catch (e) { }
 
         isProcessingRef.current = false;
         setIsProcessing(false);
@@ -513,9 +517,9 @@ const WebcamCapture = () => {
               : data.message;
           }
           speakText(speakMsg);
-        } catch (e) {}
+        } catch (e) { }
 
-      
+
         setTimeout(() => {
           isProcessingRef.current = false;
           setIsProcessing(false);
@@ -569,7 +573,7 @@ const WebcamCapture = () => {
       setTimeout(() => {
         isProcessingRef.current = false;
         setIsProcessing(false);
-        lastCaptureTimeRef.current = Date.now(); 
+        lastCaptureTimeRef.current = Date.now();
       }, 10000);
     }
   }, [showToast, stopCameraWith, fetchGeolocation, geolocation, geoError]);
@@ -612,7 +616,7 @@ const WebcamCapture = () => {
 
         if (detected && !isProcessingRef.current && !captureTimeoutRef.current) {
           const now = Date.now();
-          const cooldownMs = 10000; 
+          const cooldownMs = 10000;
           if (now - lastCaptureTimeRef.current > cooldownMs) {
             captureTimeoutRef.current = setTimeout(async () => {
               if (faceDetectedRef.current && !isProcessingRef.current && webcamRef.current?.video?.readyState === 4) {
@@ -910,6 +914,14 @@ const WebcamCapture = () => {
 
           {canSeeOrganisation && location.pathname.startsWith('/reports') && (
             <ReportsLayout onNotify={showToast} />
+          )}
+
+          {location.pathname.startsWith('/leave-management') && (
+            <LeaveManagementLayout onNotify={showToast} />
+          )}
+
+          {location.pathname.startsWith('/payslip') && (
+            <PayslipLayout onNotify={showToast} />
           )}
 
           {activeTab === 'about' && (

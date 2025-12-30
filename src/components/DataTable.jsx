@@ -19,6 +19,9 @@ const DataTable = ({
   emptyMessage = 'No data found.',
   actions = [],
   rowKey = 'id',
+  wrapperClassName = '',
+  wrapperStyle = {},
+  noWrapper = false,
 }) => {
   if (isLoading) {
     return <div className="management-empty">Loading…</div>;
@@ -28,9 +31,8 @@ const DataTable = ({
     return <div className="management-empty">{emptyMessage}</div>;
   }
 
-  return (
-    <div className="management-table-wrapper limited mobile-auto">
-      <table className="management-table">
+  const table = (
+    <table className="management-table" style={{ width: '100%', tableLayout: 'auto' }}>
         <thead>
           <tr>
             {columns.map((column) => (
@@ -65,6 +67,15 @@ const DataTable = ({
           ))}
         </tbody>
       </table>
+  );
+
+  if (noWrapper) {
+    return table;
+  }
+
+  return (
+    <div className={`management-table-wrapper limited mobile-auto ${wrapperClassName}`.trim()} style={wrapperStyle}>
+      {table}
     </div>
   );
 };

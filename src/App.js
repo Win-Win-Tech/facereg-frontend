@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from './components/PrivateRoute';
 import LoginPage from './pages/LoginPage';
 import WebcamCapture from '../src/pages/WebcamCapture';
+import LeaveManagementLayout from './pages/leavemanagement/LeaveManagementLayout';
 
 function App() {
   return (

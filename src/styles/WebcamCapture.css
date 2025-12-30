@@ -264,8 +264,11 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  max-height: 100vh;
   position: relative;
   z-index: 1;
+  overflow: hidden;
+  height: 100vh;
 }
 
 /* Top Navigation */
@@ -438,8 +441,14 @@ body {
   flex: 1;
   padding: 32px 28px 120px;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
   z-index: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  /* Ensure scrolling works on all screen sizes */
+  max-height: 100vh;
+  height: 100%;
 }
 
 /* Sections styling similar to previous but adjusted colors */

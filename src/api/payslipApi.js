@@ -12,11 +12,14 @@ export const downloadPayslipPDF = (id, config = {}) =>
 
 export const payslipReports = (params) => httpClient.get('/payslips/reports/', { params });
 
+export const deletePayslip = (id) => httpClient.delete(`/payslips/${id}/`);
+
 export default {
   listPayslips,
   generatePayslip,
   getPayslip,
   payslipReports,
+  deletePayslip,
 };
 
 /**
