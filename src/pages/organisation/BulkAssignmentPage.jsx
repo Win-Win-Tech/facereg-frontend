@@ -60,10 +60,10 @@ const BulkAssignmentPage = ({ onNotify }) => {
     }
   }, [locationId, onNotify]);
 
-  // Load shifts
-  const loadShifts = useCallback(async () => {
+  // Load shifts - filter by selected location in bulk assignment form
+  const loadShifts = useCallback(async (selectedLocationId) => {
     try {
-      const params = locationId ? { location_id: locationId } : {};
+      const params = selectedLocationId ? { location_id: selectedLocationId } : (locationId ? { location_id: locationId } : {});
       const res = await getShifts(params);
       if (Array.isArray(res.data)) {
         setShifts(res.data);
@@ -76,8 +76,12 @@ const BulkAssignmentPage = ({ onNotify }) => {
   useEffect(() => {
     loadLocations();
     loadSites();
-    loadShifts();
-  }, [loadLocations, loadSites, loadShifts]);
+  }, [loadLocations, loadSites]);
+
+  // Load shifts when location changes in bulk assignment form
+  useEffect(() => {
+    loadShifts(bulkAssignForm.location_id || locationId);
+  }, [bulkAssignForm.location_id, locationId, loadShifts]);
 
   // Fetch employees for selected location in bulk assignment
   useEffect(() => {
@@ -192,7 +196,22 @@ const BulkAssignmentPage = ({ onNotify }) => {
     }));
   };
 
+  // Reset shift selection when location changes
+  useEffect(() => {
+    setBulkAssignForm((prev) => ({
+      ...prev,
+      shift_id: '', // Reset shift selection when location changes
+    }));
+  }, [bulkAssignForm.location_id]);
+
   const availableBulkShifts = React.useMemo(() => {
+    // First, filter shifts by location (shifts are now location-specific)
+    let locationFilteredShifts = shifts;
+    if (bulkAssignForm.location_id) {
+      locationFilteredShifts = shifts.filter((s) => String(s.location) === String(bulkAssignForm.location_id));
+    }
+
+    // If specific sites are selected, further filter by shifts assigned to those sites
     if (bulkAssignForm.site_ids.length > 0) {
       const selected = new Set(bulkAssignForm.site_ids);
       const shiftIds = new Set();
@@ -205,26 +224,13 @@ const BulkAssignmentPage = ({ onNotify }) => {
           }
         }
       });
-      return shifts.filter((s) => shiftIds.has(s.id));
+      if (shiftIds.size > 0) {
+        return locationFilteredShifts.filter((s) => shiftIds.has(s.id));
+      }
     }
 
-    // If location selected (but no specific sites), gather shifts assigned to any site of that location
-    if (bulkAssignForm.location_id) {
-      const shiftIds = new Set();
-      sites.forEach((site) => {
-        if (String(site.location) === String(bulkAssignForm.location_id)) {
-          if (Array.isArray(site.shifts) && site.shifts.length > 0) {
-            site.shifts.forEach((s) => shiftIds.add(s.id));
-          } else if (Array.isArray(site.shift_ids) && site.shift_ids.length > 0) {
-            site.shift_ids.forEach((id) => shiftIds.add(id));
-          }
-        }
-      });
-      if (shiftIds.size > 0) return shifts.filter((s) => shiftIds.has(s.id));
-    }
-
-    // If nothing is selected yet, return all shifts
-    return shifts;
+    // Return location-filtered shifts (all shifts for the selected location)
+    return locationFilteredShifts;
   }, [bulkAssignForm.location_id, bulkAssignForm.site_ids, shifts, sites]);
 
   return (

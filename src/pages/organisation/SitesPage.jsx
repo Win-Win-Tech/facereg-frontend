@@ -232,6 +232,7 @@ const SitesPage = ({ onNotify }) => {
         start_time: shiftCreationForm.start_time,
         end_time: shiftCreationForm.end_time,
         grace_timing: shiftCreationForm.grace_timing || 30,
+        location_id: locationId || null,
       };
 
       await createShift(payload);
