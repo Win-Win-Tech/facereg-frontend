@@ -80,7 +80,9 @@ const SitesPage = ({ onNotify }) => {
   }, [locationId, onNotify]);
 
   const loadShifts = useCallback(async (filterLocationId = locationId) => {
+  const loadShifts = useCallback(async (filterLocationId = locationId) => {
     try {
+      const params = filterLocationId ? { location_id: filterLocationId } : {};
       const params = filterLocationId ? { location_id: filterLocationId } : {};
       const res = await getShifts(params);
       if (Array.isArray(res.data)) {
