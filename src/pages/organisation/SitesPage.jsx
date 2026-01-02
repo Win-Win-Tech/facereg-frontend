@@ -79,9 +79,9 @@ const SitesPage = ({ onNotify }) => {
     }
   }, [locationId, onNotify]);
 
-  const loadShifts = useCallback(async () => {
+  const loadShifts = useCallback(async (filterLocationId = locationId) => {
     try {
-      const params = locationId ? { location_id: locationId } : {};
+      const params = filterLocationId ? { location_id: filterLocationId } : {};
       const res = await getShifts(params);
       if (Array.isArray(res.data)) {
         setShifts(res.data);
@@ -111,6 +111,16 @@ const SitesPage = ({ onNotify }) => {
     setSiteErrors({});
     setSiteModalMode('create');
     setShowSiteModal(true);
+    if (locationId) {
+      loadShifts(locationId);
+    }
+  };
+
+  const handleLocationChange = (newLocationId) => {
+    setSiteForm((prev) => ({ ...prev, location_id: newLocationId }));
+    if (newLocationId) {
+      loadShifts(newLocationId);
+    }
   };
 
   const openEditSiteModal = (site) => {
@@ -126,6 +136,9 @@ const SitesPage = ({ onNotify }) => {
     setSiteErrors({});
     setSiteModalMode('edit');
     setShowSiteModal(true);
+    if (site.location) {
+      loadShifts(site.location);
+    }
   };
 
   const validateSite = () => {
@@ -227,12 +240,13 @@ const SitesPage = ({ onNotify }) => {
 
     setShiftCreationSubmitting(true);
     try {
+      const selectedLocationId = siteForm.location_id || locationId || null;
       const payload = {
         shift_name: shiftCreationForm.shift_name.trim(),
         start_time: shiftCreationForm.start_time,
         end_time: shiftCreationForm.end_time,
         grace_timing: shiftCreationForm.grace_timing || 30,
-        location_id: locationId || null,
+        location_id: selectedLocationId,
       };
 
       await createShift(payload);
@@ -240,7 +254,7 @@ const SitesPage = ({ onNotify }) => {
       setShiftCreationForm({ shift_name: '', start_time: '', end_time: '', grace_timing: 30 });
       setShiftCreationErrors({});
       setShowShiftCreationModal(false);
-      loadShifts();
+      loadShifts(selectedLocationId);
     } catch (error) {
       onNotify?.('error', 'Save Failed', 'Unable to create shift.', undefined, { durationMs: 5000 });
     } finally {
@@ -249,6 +263,13 @@ const SitesPage = ({ onNotify }) => {
   };
 
   const shiftCreationFields = [
+    {
+      name: 'location_name',
+      type: 'text',
+      label: 'Location',
+      placeholder: 'Location',
+      disabled: true,
+    },
     {
       name: 'shift_name',
       type: 'text',
@@ -337,7 +358,7 @@ const SitesPage = ({ onNotify }) => {
               <select
                 name="location_id"
                 value={siteForm.location_id}
-                onChange={(e) => setSiteForm((prev) => ({ ...prev, location_id: e.target.value }))}
+                onChange={(e) => handleLocationChange(e.target.value)}
                 disabled={locationId !== null && locationId !== undefined}
               >
                 <option value="">Select location</option>
@@ -505,8 +526,16 @@ const SitesPage = ({ onNotify }) => {
         }}
         mode="create"
         title="Create New Shift"
-        formData={shiftCreationForm}
-        onFormDataChange={setShiftCreationForm}
+        formData={{
+          ...shiftCreationForm,
+          location_name: siteForm.location_id 
+            ? locations.find(loc => loc.id === siteForm.location_id)?.name || 'Unknown Location'
+            : 'Select a location first',
+        }}
+        onFormDataChange={(updatedForm) => {
+          const { location_name, ...rest } = updatedForm;
+          setShiftCreationForm(rest);
+        }}
         errors={shiftCreationErrors}
         fields={shiftCreationFields}
         isSubmitting={shiftCreationSubmitting}
