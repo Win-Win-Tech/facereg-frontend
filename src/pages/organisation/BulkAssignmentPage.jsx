@@ -205,12 +205,7 @@ const BulkAssignmentPage = ({ onNotify }) => {
   }, [bulkAssignForm.location_id]);
 
   const availableBulkShifts = React.useMemo(() => {
-    // First, filter shifts by location (shifts are now location-specific)
-    let locationFilteredShifts = shifts;
-    if (bulkAssignForm.location_id) {
-      locationFilteredShifts = shifts.filter((s) => String(s.location) === String(bulkAssignForm.location_id));
-    }
-
+    // Shifts are already filtered by location via the loadShifts API call
     // If specific sites are selected, further filter by shifts assigned to those sites
     if (bulkAssignForm.site_ids.length > 0) {
       const selected = new Set(bulkAssignForm.site_ids);
@@ -225,12 +220,12 @@ const BulkAssignmentPage = ({ onNotify }) => {
         }
       });
       if (shiftIds.size > 0) {
-        return locationFilteredShifts.filter((s) => shiftIds.has(s.id));
+        return shifts.filter((s) => shiftIds.has(s.id));
       }
+      return [];
     }
 
-    // Return location-filtered shifts (all shifts for the selected location)
-    return locationFilteredShifts;
+    return shifts;
   }, [bulkAssignForm.location_id, bulkAssignForm.site_ids, shifts, sites]);
 
   return (
