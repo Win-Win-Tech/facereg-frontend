@@ -22,6 +22,7 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
         id: null,
         location_id: '',
         company_logo: null,
+        company_logo_url: null,
         company_name: '',
         company_address: '',
         company_email: '',
@@ -37,6 +38,19 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
         orientation: 'portrait',
         font_size: 10,
     });
+
+    const [logoPreview, setLogoPreview] = useState(null);
+    const fileInputRef = React.useRef(null);
+
+    const getImageUrl = (imagePath) => {
+        if (!imagePath) return '';
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            return imagePath;
+        }
+        
+        const backendUrl = process.env.REACT_APP_API_BASE || 'http://localhost:8000';
+        return `${backendUrl}${imagePath}`;
+    };
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -74,14 +88,22 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
             // Create FormData for file upload
             const data = new FormData();
             Object.keys(formData).forEach(key => {
+                // Skip internal fields that shouldn't be sent to backend
                 if (key === 'company_logo') {
                     if (formData[key] instanceof File) {
                         data.append(key, formData[key]);
                     }
+                } else if (key === 'company_logo_url' || key === 'id') {
+                    // Skip these - id is used for URL, company_logo_url is for preview only
+                    return;
                 } else if (formData[key] !== null && formData[key] !== undefined) {
                     data.append(key, formData[key]);
                 }
             });
+
+            if (formData.id && !formData.company_logo && !formData.company_logo_url) {
+                data.append('company_logo', '');
+            }
 
             if (formData.id) {
                 await updateTemplate(formData.id, data);
@@ -142,11 +164,35 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     };
 
+    const handleLogoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setFormData({ ...formData, company_logo: file, company_logo_url: null });
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setLogoPreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveLogo = () => {
+        setFormData({ ...formData, company_logo: null, company_logo_url: null });
+        setLogoPreview(null);
+        // Clear file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     const openEdit = (template) => {
         setFormData({
             id: template.id,
             // Ensure location_id is set correctly. If it's an object, get id. If it's string/int, use as is.
             location_id: template.location_id || (template.location ? template.location.id : '') || '',
+            company_logo: null,
+            company_logo_url: template.company_logo || null,
             company_name: template.company_name || '',
             company_address: template.company_address || '',
             company_email: template.company_email || '',
@@ -162,6 +208,11 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
             orientation: template.orientation || 'portrait',
             font_size: template.font_size || 10,
         });
+        setLogoPreview(null);
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
         setSubTab('add');
     };
 
@@ -170,6 +221,7 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
             id: null,
             location_id: filterLocation || '',
             company_logo: null,
+            company_logo_url: null,
             company_name: '',
             company_address: '',
             company_email: '',
@@ -184,6 +236,7 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
             orientation: 'portrait',
             font_size: 10,
         });
+        setLogoPreview(null);
     };
 
     const columns = [
@@ -295,13 +348,68 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
                             <label>
                                 <span>Company Logo</span>
                                 <input
+                                    ref={fileInputRef}
                                     type="file"
                                     accept="image/*"
-                                    onChange={(e) => setFormData({ ...formData, company_logo: e.target.files[0] })}
+                                    onChange={handleLogoChange}
                                     className="form-control"
                                 />
                                 <small style={{ color: '#64748b' }}>Upload a PNG or JPG image for the payslip header.</small>
                             </label>
+                            
+                            {(logoPreview || formData.company_logo_url) && (
+                                <div style={{
+                                    marginTop: '15px',
+                                    padding: '10px',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#f8fafc',
+                                    textAlign: 'center'
+                                }}>
+                                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px' }}>Logo Preview:</p>
+                                    {logoPreview ? (
+                                        <img
+                                            src={logoPreview}
+                                            alt="New Logo Preview"
+                                            style={{
+                                                maxWidth: '150px',
+                                                maxHeight: '100px',
+                                                objectFit: 'contain',
+                                                marginBottom: '8px'
+                                            }}
+                                        />
+                                    ) : formData.company_logo_url ? (
+                                        <img
+                                            src={getImageUrl(formData.company_logo_url)}
+                                            alt="Current Logo"
+                                            style={{
+                                                maxWidth: '150px',
+                                                maxHeight: '100px',
+                                                objectFit: 'contain',
+                                                marginBottom: '8px'
+                                            }}
+                                        />
+                                    ) : null}
+                                    <div>
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveLogo}
+                                            style={{
+                                                padding: '4px 8px',
+                                                fontSize: '12px',
+                                                backgroundColor: '#ef4444',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Remove Logo
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
                             <div className="management-form-two-column">
                                 <label>
                                     <span>Company Name</span>
