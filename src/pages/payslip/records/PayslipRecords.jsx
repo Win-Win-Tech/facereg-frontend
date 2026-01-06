@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { listPayslips, downloadPayslipPDF, approvePayslip, deletePayslip } from '../../../api/payslipApi';
 import DataTable from '../../../components/DataTable';
 import Modal from '../../../components/Modal';
 import httpClient from '../../../api/httpClient';
+import useTabActive from '../../../hooks/useTabActive';
 import "../../../styles/ManagementPages.css";
 
 const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin }) => {
     const [payslips, setPayslips] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState(() => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -20,6 +21,9 @@ const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin }) => {
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+
+    // Track if data has been loaded for this tab
+    const hasLoadedRef = useRef(false);
 
     const loadPayslips = useCallback(async () => {
         setLoading(true);
@@ -37,9 +41,13 @@ const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     }, [selectedMonth, filterLocation, onNotify]);
 
-    useEffect(() => {
-        loadPayslips();
-    }, [loadPayslips]);
+    // Load data when tab becomes active
+    useTabActive('records', () => {
+        if (!hasLoadedRef.current) {
+            hasLoadedRef.current = true;
+            loadPayslips();
+        }
+    });
 
     const handleDownload = async (payslip) => {
         setDownloadingId(payslip.id);
@@ -231,7 +239,11 @@ const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin }) => {
                         <input
                             type="month"
                             value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            onChange={(e) => {
+                                setSelectedMonth(e.target.value);
+                                // Reload payslips when month changes
+                                setTimeout(() => loadPayslips(), 0);
+                            }}
                             className="form-control"
                             style={{ width: '180px' }}
                         />

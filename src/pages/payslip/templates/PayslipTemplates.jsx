@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from '../../../api/payslipApi';
 import httpClient from '../../../api/httpClient';
 import { getLocations } from '../../../api/locationApi';
 import DataTable from '../../../components/DataTable';
 import Modal from '../../../components/Modal';
+import useTabActive from '../../../hooks/useTabActive';
 import "../../../styles/ManagementPages.css";
 
 const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
     const [templates, setTemplates] = useState([]);
     const [locations, setLocations] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [subTab, setSubTab] = useState('list');
 
@@ -17,6 +18,9 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+
+    // Track if data has been loaded for this tab
+    const hasLoadedRef = useRef(false);
 
     const [formData, setFormData] = useState({
         id: null,
@@ -72,9 +76,13 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     }, [filterLocation, onNotify]);
 
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
+    // Load data when tab becomes active
+    useTabActive('templates', () => {
+        if (!hasLoadedRef.current) {
+            hasLoadedRef.current = true;
+            loadData();
+        }
+    });
 
     const handleSubmit = async (e) => {
         e.preventDefault();

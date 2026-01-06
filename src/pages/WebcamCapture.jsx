@@ -39,7 +39,7 @@ const WebcamCapture = () => {
     items.push(
       { id: 'reports', icon: '📊', label: 'Reports', route: '/reports' },
       // { id: 'leave-management', icon: '📅', label: 'Leave Management', route: '/leave-management' },
-      // { id: 'payslip', icon: '💵', label: 'Payslip', route: '/payslip' },
+      { id: 'payslip', icon: '💵', label: 'Payslip', route: '/payslip' },
       { id: 'about', icon: 'ℹ️', label: 'About', route: '/about' },
     );
     return items;

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { getEmployees } from '../../../api/employeeApi';
 import { getPayslipConfigs } from '../../../api/payslipApi';
 import httpClient from '../../../api/httpClient';
 import DataTable from '../../../components/DataTable';
+import useTabActive from '../../../hooks/useTabActive';
 import "../../../styles/ManagementPages.css";
 
 const GeneratePayslips = ({ onNotify, filterLocation, isSuperAdmin }) => {
@@ -15,9 +16,12 @@ const GeneratePayslips = ({ onNotify, filterLocation, isSuperAdmin }) => {
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
     const [employeeConfigs, setEmployeeConfigs] = useState({});
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Track if data has been loaded for this tab
+    const hasLoadedRef = useRef(false);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -63,9 +67,13 @@ const GeneratePayslips = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     }, [filterLocation, onNotify]);
 
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
+    // Load data when tab becomes active
+    useTabActive('generate', () => {
+        if (!hasLoadedRef.current) {
+            hasLoadedRef.current = true;
+            loadData();
+        }
+    });
 
     const toggleEmployee = (empId) => {
         setSelectedEmployees(prev =>

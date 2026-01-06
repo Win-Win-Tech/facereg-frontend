@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
     getPayslipConfigs,
     createPayslipConfig,
@@ -10,6 +10,7 @@ import {
     deleteField
 } from '../../../api/payslipApi';
 import DataTable from '../../../components/DataTable';
+import useTabActive from '../../../hooks/useTabActive';
 // import '../../styles/ManagementPages.css';
 import "../../../styles/ManagementPages.css";
 
@@ -17,9 +18,12 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
     const [configs, setConfigs] = useState([]);
     const [selectedConfig, setSelectedConfig] = useState(null);
     const [fields, setFields] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [fieldsLoading, setFieldsLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Track if data has been loaded for this tab
+    const hasLoadedRef = useRef(false);
 
     // Sub-tabs
     const [subTab, setSubTab] = useState('configs');
@@ -73,11 +77,16 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     }, [selectedConfig, onNotify]);
 
-    useEffect(() => {
-        loadConfigs();
-    }, [loadConfigs]);
+    // Load data when tab becomes active
+    useTabActive('configs', () => {
+        if (!hasLoadedRef.current) {
+            hasLoadedRef.current = true;
+            loadConfigs();
+        }
+    });
 
-    useEffect(() => {
+    // Load fields when selectedConfig changes
+    React.useEffect(() => {
         if (selectedConfig) {
             loadFields();
         }

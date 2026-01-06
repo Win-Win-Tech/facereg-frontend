@@ -7,3 +7,6 @@ export const createUser = (payload) => httpClient.post('/users/', payload);
 export const updateUser = (id, payload) => httpClient.patch(`/users/${id}/`, payload);
 
 export const deleteUser = (id) => httpClient.delete(`/users/${id}/`);
+
+export const getTimezones = () => httpClient.get('/timezones/');
+

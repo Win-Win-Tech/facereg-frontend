@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import DataTable from '../components/DataTable';
 import '../styles/ManagementPages.css';
-import { getUsers, createUser, updateUser, deleteUser } from '../api/userApi';
+import { getUsers, createUser, updateUser, deleteUser, getTimezones } from '../api/userApi';
 import { getLocations } from '../api/locationApi';
 
 const initialForm = {
@@ -11,12 +11,14 @@ const initialForm = {
   email: '',
   role: 'admin',
   location_id: '',
+  timezone: 'Asia/Kolkata',
   password: '',
 };
 
 const UsersPage = ({ onNotify, isSuperAdmin }) => {
   const [users, setUsers] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [timezones, setTimezones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filterLocation, setFilterLocation] = useState('');
@@ -46,6 +48,17 @@ const UsersPage = ({ onNotify, isSuperAdmin }) => {
     }
   }, [onNotify]);
 
+  const loadTimezones = useCallback(async () => {
+    try {
+      const res = await getTimezones();
+      if (Array.isArray(res.data)) {
+        setTimezones(res.data);
+      }
+    } catch (error) {
+      onNotify?.('error', 'Timezones', 'Failed to load timezones', undefined, { durationMs: 4000 });
+    }
+  }, [onNotify]);
+
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -71,8 +84,9 @@ const UsersPage = ({ onNotify, isSuperAdmin }) => {
     if (isSuperAdmin) {
       loadLocations();
     }
+    loadTimezones();
     loadUsers();
-  }, [isSuperAdmin, loadLocations, loadUsers]);
+  }, [isSuperAdmin, loadLocations, loadTimezones, loadUsers]);
 
   const openCreateModal = () => {
     setForm(initialForm);
@@ -88,6 +102,7 @@ const UsersPage = ({ onNotify, isSuperAdmin }) => {
       email: user.email || '',
       role: user.role || 'admin',
       location_id: user.location_id || '',
+      timezone: user.timezone || 'Asia/Kolkata',
       password: '',
     });
     setErrors({});
@@ -130,6 +145,7 @@ const UsersPage = ({ onNotify, isSuperAdmin }) => {
         name: form.name.trim(),
         email: form.email.trim(),
         role: form.role,
+        timezone: form.timezone,
         location_id: form.role === 'admin' ? form.location_id || null : null,
       };
       if (form.password.trim()) {
@@ -279,6 +295,16 @@ const UsersPage = ({ onNotify, isSuperAdmin }) => {
                 {errors.location_id && <div className="form-error">{errors.location_id}</div>}
               </label>
             )}
+            <label>
+              Time Region
+              <select name="timezone" value={form.timezone} onChange={handleChange}>
+                {timezones.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label>
               Password{modalMode === 'edit' && ' (optional)'}
               <input
