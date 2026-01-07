@@ -109,6 +109,9 @@
   border: 1px solid rgba(255, 255, 255, 0.8);
   margin-bottom: 0.75rem;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .management-card:hover {
@@ -136,6 +139,10 @@
 
 .management-card-scroll {
   overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .management-table-wrapper {
@@ -145,10 +152,14 @@
   min-height: 200px;
   margin-bottom: 1rem;
   width: 100%;
-  max-width: 100%;
+  max-width: 120%;
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
 }
 
 .pdf-preview-container {
@@ -196,8 +207,9 @@
 
 .management-table {
   width: 100%;
-  min-width: 640px;
-  border-collapse: collapse;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: auto;
 }
 
@@ -488,7 +500,7 @@
   }
 
   .management-card-scroll {
-    width: 90vw;
+    width: 80vw;
     margin: 0 auto;
   }
 
@@ -1312,5 +1324,410 @@ textarea.form-control {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 640px) {
+  .management-page {
+    gap: 0.5rem;
+    padding: 0;
+  }
+
+  .management-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .management-title {
+    font-size: 1.1rem;
+    width: 100%;
+  }
+
+  .header-left {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .header-location-filter {
+    width: 100%;
+  }
+
+  .premium-select {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .management-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .management-actions select,
+  .management-actions input,
+  .management-actions button {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .management-card {
+    padding: 0.75rem;
+    border-radius: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .card-header h3 {
+    font-size: 1rem;
+    width: 100%;
+  }
+
+  .management-table-wrapper {
+    min-height: 150px;
+    margin-bottom: 0.75rem;
+    max-height: calc(100vh - 250px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .management-table {
+    min-width: 100%;
+    font-size: 0.75rem;
+  }
+
+  .management-table th,
+  .management-table td {
+    padding: 0.4rem 0.3rem;
+    font-size: 0.75rem;
+  }
+
+  .management-table th {
+    background: #f1f5f9;
+    padding: 0.5rem 0.3rem;
+  }
+
+  .management-table thead th {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .table-row-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .table-row-actions button {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.65rem;
+    white-space: nowrap;
+  }
+
+  .pdf-preview-container {
+    min-height: 300px;
+    border-radius: 0.5rem;
+  }
+
+  .pdf-preview-container.fullscreen {
+    height: calc(100vh - 100px);
+  }
+
+  /* Hide long text in tables on mobile */
+  .table-cell-hidden-mobile {
+    display: none;
+  }
+
+  /* Responsive form inputs */
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Responsive modal/dialog on mobile */
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .modal-window {
+    width: 100%;
+    max-height: 90vh;
+    border-radius: 1rem;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .management-page {
+    padding: 0.5rem;
+  }
+
+  .management-header {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .management-title {
+    font-size: 1.15rem;
+  }
+
+  .header-left {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .premium-select {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .management-card {
+    padding: 0.9rem;
+    border-radius: 1rem;
+  }
+
+  .card-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .management-table {
+    min-width: 100%;
+  }
+
+  .management-table th,
+  .management-table td {
+    padding: 0.6rem 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .management-table-wrapper {
+    max-height: calc(100vh - 280px);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .management-page {
+    padding: 0.75rem;
+  }
+
+  .management-header {
+    gap: 1rem;
+  }
+
+  .management-title {
+    font-size: 1.2rem;
+  }
+
+  .header-left {
+    gap: 1.25rem;
+  }
+
+  .management-card {
+    padding: 1rem;
+  }
+
+  .management-table {
+    font-size: 0.95rem;
+  }
+
+  .management-table-wrapper {
+    max-height: calc(100vh - 300px);
+  }
+}
+
+@media (max-width: 480px) {
+  .management-table-wrapper {
+    max-height: calc(100vh - 240px);
+  }
+
+  .management-table {
+    min-width: 100%;
+    font-size: 0.7rem;
+  }
+
+  .management-table th,
+  .management-table td {
+    padding: 0.3rem 0.2rem;
+    font-size: 0.7rem;
+  }
+
+  .management-table thead th {
+    padding: 0.35rem 0.2rem;
+    font-size: 0.65rem;
+  }
+
+  .table-row-actions button {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.6rem;
+  }
+}
+
+/* Improved mobile table scrolling with better UX */
+@media (max-width: 768px) {
+  .management-card {
+    padding: 0.75rem;
+    border-radius: 1rem;
+  }
+
+  .management-card-scroll {
+    overflow-x: hidden;
+  }
+
+  .management-table-wrapper {
+    margin-bottom: 0.75rem;
+  }
+
+  .management-form {
+    display: flex !important;
+    flex-direction: column;
+    gap: 1rem !important;
+  }
+
+  .management-form-group {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .management-card {
+    padding: 0.5rem;
+    border-radius: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .management-card-scroll {
+    overflow-x: hidden;
+    padding: 0.25rem;
+  }
+
+  .management-table-wrapper {
+    margin-bottom: 0.5rem;
+    max-height: calc(100vh - 300px);
+    border-radius: 0.5rem;
+  }
+
+  .management-table-wrapper::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .management-table-wrapper::-webkit-scrollbar-track {
+    background: rgba(241, 245, 249, 0.5);
+    border-radius: 4px;
+  }
+
+  .management-table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 4px;
+  }
+
+  .management-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.6);
+  }
+
+  .management-table {
+    font-size: 0.75rem;
+  }
+
+  .management-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    white-space: nowrap;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    padding: 0.5rem 0.3rem;
+  }
+
+  .management-table tbody td {
+    white-space: nowrap;
+    padding: 0.4rem 0.3rem;
+  }
+
+  .management-form {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.75rem !important;
+  }
+
+  .management-form-group {
+    width: 100% !important;
+  }
+
+  .management-form-group label {
+    display: block;
+    width: 100%;
+  }
+
+  .management-form-group input,
+  .management-form-group select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .management-form-group textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+  .management-card {
+    padding: 0.4rem;
+    border-radius: 0.75rem;
+  }
+
+  .management-table {
+    font-size: 0.7rem;
+  }
+
+  .management-table thead th,
+  .management-table tbody td {
+    padding: 0.3rem 0.2rem;
+  }
+
+  .management-form-group input,
+  .management-form-group select,
+  .management-form-group textarea {
+    font-size: 16px;
+  }
+}
+
+
+/* Landscape orientation adjustments */
+@media (max-height: 600px) {
+  .management-table-wrapper {
+    max-height: calc(100vh - 180px);
+  }
+
+  .management-page {
+    gap: 0.25rem;
+  }
+
+  .management-card {
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
   }
 }

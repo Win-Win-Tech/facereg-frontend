@@ -121,3 +121,116 @@
   }
 }
 
+/* Enhanced Mobile Responsiveness for LoginPage */
+@media (max-width: 640px) {
+  .login-container {
+    padding: 1rem;
+    min-height: 100vh;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 100%;
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+  }
+
+  .login-icon {
+    width: 3rem;
+    height: 3rem;
+    font-size: 1.5rem;
+  }
+
+  .login-brand h1 {
+    font-size: 1.5rem;
+  }
+
+  .login-brand p {
+    font-size: 0.85rem;
+  }
+
+  .login-field input {
+    padding: 0.7rem 0.8rem;
+    font-size: 16px; /* Prevents zoom on iOS */
+    border-radius: 0.65rem;
+  }
+
+  .login-button {
+    padding: 0.8rem;
+    font-size: 0.95rem;
+  }
+
+  .login-footer {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 1.25rem;
+    border-radius: 1rem;
+  }
+
+  .login-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.25rem;
+  }
+
+  .login-brand h1 {
+    font-size: 1.25rem;
+  }
+
+  .login-brand p {
+    font-size: 0.8rem;
+  }
+
+  .login-form {
+    gap: 0.75rem;
+  }
+
+  .login-field {
+    gap: 0.25rem;
+  }
+
+  .login-field input {
+    padding: 0.6rem 0.7rem;
+    font-size: 16px;
+    border-radius: 0.6rem;
+  }
+
+  .login-button {
+    padding: 0.7rem 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .login-footer {
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .login-card {
+    padding: 1rem;
+  }
+
+  .login-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .login-brand h1 {
+    font-size: 1.1rem;
+  }
+
+  .login-brand p {
+    font-size: 0.75rem;
+  }
+
+  .login-field input {
+    padding: 0.55rem 0.65rem;
+    font-size: 16px;
+  }
+}
+

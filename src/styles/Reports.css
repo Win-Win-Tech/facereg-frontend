@@ -1300,22 +1300,197 @@
 @media (max-width: 640px) {
   .reports-container {
     padding: 0;
-    width: 90vw;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    height: auto;
+    min-height: auto;
+    border-radius: 0;
+  }
+
+  .reports-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 12px 12px;
+  }
+
+  .reports-title {
+    font-size: 1.1rem;
+    width: 100%;
+  }
+
+  .reports-tab-header {
+    padding: 0.5rem 12px;
+    gap: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .tab-button.active {
+    font-size: 0.8rem;
   }
 
   .reports-tab-panel {
-    padding: 16px;
+    padding: 12px;
   }
 
   .summary-table thead th,
   .summary-table tbody td,
   .table-content-wrapper,
   .summary-table-wrapper {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
+    padding: 0.4rem;
   }
 
   .summary-table,
   .payroll-table {
-    min-width: 480px;
+    min-width: 100%;
+    font-size: 0.75rem;
+  }
+
+  .summary-table th {
+    padding: 0.5rem 0.3rem;
+  }
+
+  .summary-table td {
+    padding: 0.4rem 0.3rem;
+  }
+
+  .location-chip {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.7rem;
+    margin: 0;
+  }
+
+  .reports-container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Make table scrollable on mobile */
+  .summary-table-wrapper,
+  .table-content-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .reports-container {
+    width: 100%;
+  }
+
+  .reports-header {
+    padding: 10px 10px;
+  }
+
+  .reports-title {
+    font-size: 1rem;
+  }
+
+  .reports-tab-header {
+    padding: 0.4rem 10px;
+  }
+
+  .tab-button {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .reports-tab-panel {
+    padding: 10px;
+  }
+
+  .summary-table thead th,
+  .summary-table tbody td {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.25rem;
+  }
+
+  .summary-table,
+  .payroll-table {
+    min-width: 100%;
+  }
+
+  .location-chip {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .reports-container {
+    max-width: 100%;
+    width: 100%;
+    margin: 5px 0;
+  }
+
+  .reports-header {
+    padding: 12px 16px;
+  }
+
+  .reports-title {
+    font-size: 1.15rem;
+  }
+
+  .reports-tab-header {
+    padding: 8px 16px;
+  }
+
+  .tab-button {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  .reports-tab-panel {
+    padding: 14px;
+  }
+
+  .summary-table thead th,
+  .summary-table tbody td {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.4rem;
+  }
+}
+
+/* Landscape mode adjustments */
+@media (max-height: 600px) {
+  .reports-container {
+    height: auto;
+    min-height: auto;
+  }
+
+  .reports-header {
+    padding: 8px 12px;
+  }
+
+  .reports-title {
+    font-size: 1rem;
+  }
+
+  .reports-tab-header {
+    padding: 6px 12px;
+  }
+
+  .tab-button {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .reports-tab-panel {
+    padding: 10px;
+  }
+
+  .summary-table-wrapper,
+  .table-content-wrapper {
+    max-height: calc(100vh - 150px);
   }
 }

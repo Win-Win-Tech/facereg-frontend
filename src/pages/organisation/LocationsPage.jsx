@@ -106,16 +106,16 @@ const LocationsPage = ({ onNotify }) => {
 
   const locationTableColumns = [
     { key: 'name', label: 'Name' },
-    {
-      key: 'created_at',
-      label: 'Created',
-      render: (value) => (value ? new Date(value).toLocaleString() : '—'),
-    },
-    {
-      key: 'updated_at',
-      label: 'Updated',
-      render: (value) => (value ? new Date(value).toLocaleString() : '—'),
-    },
+    // {
+    //   key: 'created_at',
+    //   label: 'Created',
+    //   render: (value) => (value ? new Date(value).toLocaleString() : '—'),
+    // },
+    // {
+    //   key: 'updated_at',
+    //   label: 'Updated',
+    //   render: (value) => (value ? new Date(value).toLocaleString() : '—'),
+    // },
   ];
 
   const locationTableActions = [
