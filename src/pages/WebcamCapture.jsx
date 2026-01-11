@@ -31,6 +31,7 @@ const WebcamCapture = () => {
     if (isSuperAdmin) {
       items.push(
         { id: 'users', icon: '👤', label: 'Users', route: '/users' },
+        { id: 'payslip', icon: '💵', label: 'Payslip', route: '/payslip' },
       );
     }
     if (canSeeOrganisation) {
