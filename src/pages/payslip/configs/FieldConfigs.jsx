@@ -11,6 +11,7 @@ import {
 } from '../../../api/payslipApi';
 import DataTable from '../../../components/DataTable';
 import useTabActive from '../../../hooks/useTabActive';
+import FieldConfigHelpModal from './FieldConfigHelpModal';
 // import '../../styles/ManagementPages.css';
 import "../../../styles/ManagementPages.css";
 
@@ -28,6 +29,7 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
     // Sub-tabs
     const [subTab, setSubTab] = useState('configs');
     const [fieldSubTab, setFieldSubTab] = useState('list');
+    const [showHelpModal, setShowHelpModal] = useState(false);
 
     // Forms
     const [configForm, setConfigForm] = useState({
@@ -503,8 +505,37 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
 
                     {fieldSubTab === 'add-field' && (
                         <div className="management-card">
-                            <div className="card-header">
+                            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3>{fieldForm.id ? 'Edit' : 'Add'} Salary Field</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowHelpModal(true)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '1.25rem',
+                                        padding: '0.25rem 0.5rem',
+                                        borderRadius: '0.375rem',
+                                        color: '#0ea5e9',
+                                        transition: 'all 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem'
+                                    }}
+                                    title="Click for help with field configuration"
+                                    onMouseEnter={(e) => {
+                                        e.target.style.backgroundColor = '#f0f9ff';
+                                        e.target.style.transform = 'scale(1.1)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.backgroundColor = 'transparent';
+                                        e.target.style.transform = 'scale(1)';
+                                    }}
+                                >
+                                    <span>ℹ️</span>
+                                    <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>Help</span>
+                                </button>
                             </div>
                             <form onSubmit={handleFieldSubmit} className="management-form">
                                 <div className="management-form-two-column">
@@ -537,7 +568,7 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
                                         <span>Value Type</span>
                                         <select
                                             value={fieldForm.value_type}
-                                            onChange={(e) => setFieldForm({ ...fieldForm, value_type: e.target.value })}
+                                            onChange={(e) => setFieldForm({ ...fieldForm, value_type: e.target.value, value: '' })}
                                             className="form-control"
                                         >
                                             <option value="PERCENTAGE">Percentage of Gross</option>
@@ -553,7 +584,13 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
                                             onChange={(e) => setFieldForm({ ...fieldForm, value: e.target.value })}
                                             className="form-control"
                                             required
-                                            placeholder={fieldForm.value_type === 'PERCENTAGE' ? 'e.g., 40' : 'e.g., 5000'}
+                                            placeholder={
+                                                fieldForm.value_type === 'PERCENTAGE' 
+                                                    ? 'e.g., 40 (means 40% of gross salary)'
+                                                    : fieldForm.value_type === 'FIXED'
+                                                    ? 'e.g., 5000 (fixed amount)'
+                                                    : 'e.g., absent_days * deduction_per_day'
+                                            }
                                         />
                                     </label>
                                 </div>
@@ -608,6 +645,12 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
                     )}
                 </>
             )}
+
+            {/* Help Modal */}
+            <FieldConfigHelpModal 
+                isOpen={showHelpModal} 
+                onClose={() => setShowHelpModal(false)} 
+            />
 
         </div>
     );

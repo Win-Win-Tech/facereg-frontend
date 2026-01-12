@@ -235,7 +235,7 @@ const ShiftsPage = ({ onNotify }) => {
       <div className="management-card">
         <div className="management-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Shifts</h3>
+          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Shifts</h3>
             {isSuperAdmin ? (
               <select
                 value={filterLocation}
