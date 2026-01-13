@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import GeneratePayslips from './generate/GeneratePayslips';
 import PayslipRecords from './records/PayslipRecords';
@@ -18,25 +18,57 @@ const PayslipLayout = ({ onNotify }) => {
 
     const [locations, setLocations] = useState([]);
     const [filterLocation, setFilterLocation] = useState(userLocationId || '');
-
-    const loadLocations = useCallback(async () => {
-        if (isSuperAdmin) {
-            try {
-                const locRes = await getLocations();
-                const locs = Array.isArray(locRes.data) ? locRes.data : [];
-                setLocations(locs);
-                if (locs.length > 0 && !filterLocation) {
-                    setFilterLocation(locs[0].id);
-                }
-            } catch (error) {
-                onNotify?.('error', 'Error', 'Failed to load locations');
-            }
-        }
-    }, [isSuperAdmin, filterLocation, onNotify]);
+    const [locationsLoaded, setLocationsLoaded] = useState(!isSuperAdmin); // For admin, locations are already "loaded" (using userLocationId)
+    const locationChangeTimeoutRef = useRef(null);
+    const locationsLoadedRef = useRef(false); // Track if locations have been loaded to prevent duplicate calls
 
     useEffect(() => {
-        loadLocations();
-    }, [loadLocations]);
+        // Only load locations once for superadmin
+        if (isSuperAdmin && !locationsLoadedRef.current) {
+            locationsLoadedRef.current = true;
+            const loadLocationsData = async () => {
+                try {
+                    const locRes = await getLocations();
+                    const locs = Array.isArray(locRes.data) ? locRes.data : [];
+                    setLocations(locs);
+                    // Use functional update to avoid dependency on filterLocation
+                    setFilterLocation(prev => {
+                        if (locs.length > 0 && !prev) {
+                            return locs[0].id;
+                        }
+                        return prev;
+                    });
+                    setLocationsLoaded(true); // Mark locations as loaded
+                } catch (error) {
+                    onNotify?.('error', 'Error', 'Failed to load locations');
+                    setLocationsLoaded(true); // Even on error, mark as loaded to prevent infinite waiting
+                }
+            };
+            loadLocationsData();
+        }
+    }, [isSuperAdmin, onNotify]);
+
+    // Debounced location change handler to prevent rapid API calls
+    const handleLocationChange = useCallback((newLocationId) => {
+        // Clear any pending location change
+        if (locationChangeTimeoutRef.current) {
+            clearTimeout(locationChangeTimeoutRef.current);
+        }
+        
+        // Debounce location changes by 300ms to prevent rapid API calls
+        locationChangeTimeoutRef.current = setTimeout(() => {
+            setFilterLocation(newLocationId);
+        }, 300);
+    }, []);
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (locationChangeTimeoutRef.current) {
+                clearTimeout(locationChangeTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const getActiveTab = () => {
         const path = location.pathname;
@@ -65,7 +97,7 @@ const PayslipLayout = ({ onNotify }) => {
                         {isSuperAdmin ? (
                             <select
                                 value={filterLocation}
-                                onChange={(e) => setFilterLocation(e.target.value)}
+                                onChange={(e) => handleLocationChange(e.target.value)}
                                 className="premium-select"
                             >
                                 <option value="">Select Location</option>
@@ -103,7 +135,8 @@ const PayslipLayout = ({ onNotify }) => {
                                 <GeneratePayslips 
                                     onNotify={onNotify} 
                                     filterLocation={filterLocation} 
-                                    isSuperAdmin={isSuperAdmin} 
+                                    isSuperAdmin={isSuperAdmin}
+                                    locationsLoaded={locationsLoaded}
                                 />
                             } 
                         />
@@ -113,7 +146,8 @@ const PayslipLayout = ({ onNotify }) => {
                                 <PayslipRecords 
                                     onNotify={onNotify} 
                                     filterLocation={filterLocation} 
-                                    isSuperAdmin={isSuperAdmin} 
+                                    isSuperAdmin={isSuperAdmin}
+                                    locationsLoaded={locationsLoaded}
                                 />
                             } 
                         />
@@ -123,7 +157,8 @@ const PayslipLayout = ({ onNotify }) => {
                                 <FieldConfigs 
                                     onNotify={onNotify} 
                                     filterLocation={filterLocation} 
-                                    isSuperAdmin={isSuperAdmin} 
+                                    isSuperAdmin={isSuperAdmin}
+                                    locationsLoaded={locationsLoaded}
                                 />
                             } 
                         />
@@ -133,7 +168,8 @@ const PayslipLayout = ({ onNotify }) => {
                                 <PayslipTemplates 
                                     onNotify={onNotify} 
                                     filterLocation={filterLocation} 
-                                    isSuperAdmin={isSuperAdmin} 
+                                    isSuperAdmin={isSuperAdmin}
+                                    locationsLoaded={locationsLoaded}
                                 />
                             } 
                         />

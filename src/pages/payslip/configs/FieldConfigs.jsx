@@ -15,7 +15,7 @@ import FieldConfigHelpModal from './FieldConfigHelpModal';
 // import '../../styles/ManagementPages.css';
 import "../../../styles/ManagementPages.css";
 
-const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
+const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin, locationsLoaded }) => {
     const [configs, setConfigs] = useState([]);
     const [selectedConfig, setSelectedConfig] = useState(null);
     const [fields, setFields] = useState([]);
@@ -55,15 +55,19 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
             const configList = Array.isArray(response.data) ? response.data : [];
             setConfigs(configList);
 
-            if (configList.length > 0 && !selectedConfig) {
-                setSelectedConfig(configList[0]);
-            }
+            // Use functional update to avoid dependency on selectedConfig
+            setSelectedConfig(prev => {
+                if (configList.length > 0 && !prev) {
+                    return configList[0];
+                }
+                return prev;
+            });
         } catch (error) {
             onNotify?.('error', 'Error', 'Failed to load configurations');
         } finally {
             setLoading(false);
         }
-    }, [filterLocation, onNotify, selectedConfig]);
+    }, [filterLocation, onNotify]);
 
     const loadFields = useCallback(async () => {
         if (!selectedConfig) return;
@@ -79,13 +83,54 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     }, [selectedConfig, onNotify]);
 
-    // Load data when tab becomes active
+    // Load data when tab becomes active (only if locations are loaded)
     useTabActive('configs', () => {
-        if (!hasLoadedRef.current) {
+        if (!hasLoadedRef.current && locationsLoaded) {
             hasLoadedRef.current = true;
             loadConfigs();
         }
     });
+
+    // Also trigger load when locations become loaded (for initial mount)
+    React.useEffect(() => {
+        if (locationsLoaded && !hasLoadedRef.current) {
+            // Check if this tab is active
+            const path = window.location.pathname;
+            if (path.includes('/payslip/configs')) {
+                hasLoadedRef.current = true;
+                loadConfigs();
+            }
+        }
+    }, [locationsLoaded]); // Only depend on locationsLoaded
+
+    // Reload configs when filterLocation changes
+    React.useEffect(() => {
+        if (hasLoadedRef.current) {
+            const loadConfigsData = async () => {
+                setLoading(true);
+                try {
+                    const params = filterLocation ? { location_id: filterLocation } : {};
+                    const response = await getPayslipConfigs(params);
+                    const configList = Array.isArray(response.data) ? response.data : [];
+                    setConfigs(configList);
+                    setSelectedConfig(prev => {
+                        if (configList.length > 0 && !prev) {
+                            return configList[0];
+                        }
+                        return prev;
+                    });
+                } catch (error) {
+                    onNotify?.('error', 'Error', 'Failed to load configurations');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadConfigsData();
+            // Reset selected config when location changes
+            setSelectedConfig(null);
+            setFields([]);
+        }
+    }, [filterLocation, onNotify]);
 
     // Load fields when selectedConfig changes
     React.useEffect(() => {
@@ -233,17 +278,23 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
 
     const earningFields = fields.filter(f => f.field_type === 'EARNING');
     const deductionFields = fields.filter(f => f.field_type === 'DEDUCTION');
+    const infoFields = fields.filter(f => f.field_type === 'INFO');
 
     const fieldColumns = [
         { key: 'field_name', label: 'Field Name' },
         {
             key: 'field_type',
             label: 'Type',
-            render: (val) => (
-                <span className={`status-badge ${val === 'EARNING' ? 'approved' : 'rejected'}`}>
-                    {val}
-                </span>
-            )
+            render: (val) => {
+                let badgeClass = 'rejected';
+                if (val === 'EARNING') badgeClass = 'approved';
+                else if (val === 'INFO') badgeClass = 'pending';
+                return (
+                    <span className={`status-badge ${badgeClass}`}>
+                        {val}
+                    </span>
+                );
+            }
         },
         {
             key: 'value_type',
@@ -497,6 +548,42 @@ const FieldConfigs = ({ onNotify, filterLocation, isSuperAdmin }) => {
                                 ) : (
                                     <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
                                         No deduction fields configured
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ padding: '0 1rem', paddingBottom: '3rem', marginTop: '1rem', position: 'relative', zIndex: 1 }}>
+                                <h4 style={{ 
+                                    fontSize: '0.95rem', 
+                                    color: '#475569', 
+                                    marginTop: '0',
+                                    marginBottom: '0.75rem', 
+                                    fontWeight: '600',
+                                    paddingTop: '0.5rem',
+                                    paddingBottom: '0.5rem',
+                                    borderBottom: '1px solid #e2e8f0'
+                                }}>
+                                    Information ({infoFields.length})
+                                </h4>
+                                {infoFields.length > 0 ? (
+                                    <DataTable
+                                        columns={fieldColumns}
+                                        data={infoFields}
+                                        isLoading={fieldsLoading}
+                                        rowKey="id"
+                                        wrapperStyle={{ 
+                                            maxHeight: '300px', 
+                                            overflowY: 'auto', 
+                                            overflowX: 'auto',
+                                            width: '100%',
+                                            maxWidth: '100%',
+                                            position: 'relative',
+                                            zIndex: 1
+                                        }}
+                                    />
+                                ) : (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                                        No information fields configured
                                     </div>
                                 )}
                             </div>

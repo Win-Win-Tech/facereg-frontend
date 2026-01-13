@@ -6,7 +6,7 @@ import DataTable from '../../../components/DataTable';
 import useTabActive from '../../../hooks/useTabActive';
 import "../../../styles/ManagementPages.css";
 
-const GeneratePayslips = ({ onNotify, filterLocation, isSuperAdmin }) => {
+const GeneratePayslips = ({ onNotify, filterLocation, isSuperAdmin, locationsLoaded }) => {
     const [employees, setEmployees] = useState([]);
     const [configs, setConfigs] = useState([]);
     const [locationConfigs, setLocationConfigs] = useState([]);
@@ -26,9 +26,10 @@ const GeneratePayslips = ({ onNotify, filterLocation, isSuperAdmin }) => {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
+            const configParams = filterLocation ? { location_id: filterLocation } : {};
             const [empRes, configRes] = await Promise.all([
                 getEmployees({ location_id: filterLocation }),
-                getPayslipConfigs()
+                getPayslipConfigs(configParams)
             ]);
 
             const empList = Array.isArray(empRes.data) ? empRes.data : [];
@@ -67,13 +68,75 @@ const GeneratePayslips = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     }, [filterLocation, onNotify]);
 
-    // Load data when tab becomes active
+    // Load data when tab becomes active (only if locations are loaded)
     useTabActive('generate', () => {
-        if (!hasLoadedRef.current) {
+        if (!hasLoadedRef.current && locationsLoaded) {
             hasLoadedRef.current = true;
             loadData();
         }
     });
+
+    // Also trigger load when locations become loaded (for initial mount)
+    React.useEffect(() => {
+        if (locationsLoaded && !hasLoadedRef.current) {
+            // Check if this tab is active
+            const path = window.location.pathname;
+            if (path.includes('/payslip/generate')) {
+                hasLoadedRef.current = true;
+                loadData();
+            }
+        }
+    }, [locationsLoaded]); // Only depend on locationsLoaded
+
+    // Reload data when filterLocation changes
+    React.useEffect(() => {
+        if (hasLoadedRef.current) {
+            const loadDataAsync = async () => {
+                setLoading(true);
+                try {
+                    const configParams = filterLocation ? { location_id: filterLocation } : {};
+                    const [empRes, configRes] = await Promise.all([
+                        getEmployees({ location_id: filterLocation }),
+                        getPayslipConfigs(configParams)
+                    ]);
+
+                    const empList = Array.isArray(empRes.data) ? empRes.data : [];
+                    const configList = Array.isArray(configRes.data) ? configRes.data : [];
+
+                    setEmployees(empList);
+                    setConfigs(configList);
+
+                    // Filter configs by location
+                    const filteredConfigs = configList.filter(c => {
+                        if (!filterLocation) return true;
+                        return c.location_id === filterLocation;
+                    });
+                    
+                    setLocationConfigs(filteredConfigs);
+
+                    // Initialize employee configs
+                    const initialConfigs = {};
+                    if (filteredConfigs.length > 0) {
+                        empList.forEach(emp => {
+                            const empConfigId = emp.payslip_field_config_id;
+                            const validConfig = empConfigId && filteredConfigs.find(c => c.id === empConfigId) 
+                                ? empConfigId 
+                                : filteredConfigs[0].id;
+                            initialConfigs[emp.id] = validConfig;
+                        });
+                    }
+                    setEmployeeConfigs(initialConfigs);
+                } catch (error) {
+                    onNotify?.('error', 'Error', 'Failed to load data');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadDataAsync();
+            // Reset selections when location changes
+            setSelectedEmployees([]);
+        }
+    }, [filterLocation, onNotify]);
 
     const toggleEmployee = (empId) => {
         setSelectedEmployees(prev =>

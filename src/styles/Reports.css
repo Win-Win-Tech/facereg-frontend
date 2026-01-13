@@ -603,6 +603,8 @@
   overflow-y: auto;
   max-height: inherit;
   min-width: 0;
+  padding-bottom: 60px; /* Ensure last row is clearly visible on mobile */
+  margin-bottom: 20px;
 }
 
 .summary-table-container:has(.monthly-table) {
@@ -1380,6 +1382,51 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
+  }
+  
+  /* Monthly table - make date columns narrower to fit ~15-16 per visible row (2 rows for 31 days) */
+  .monthly-table {
+    min-width: auto;
+  }
+  
+  /* Date columns (starting from 8th column - after Employee, Dept, Location, Shift, Present, Absent) */
+  .monthly-table thead tr th:nth-child(n+8),
+  .monthly-table tbody tr td:nth-child(n+8) {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    font-size: 0.65rem;
+    padding: 0.25rem 0.15rem;
+    text-align: center;
+  }
+  
+  /* Fixed columns maintain their width */
+  .monthly-table thead tr th:nth-child(1),
+  .monthly-table tbody tr td:nth-child(1) {
+    width: 100px;
+    min-width: 100px;
+  }
+  
+  .monthly-table thead tr th:nth-child(2),
+  .monthly-table tbody tr td:nth-child(2),
+  .monthly-table thead tr th:nth-child(3),
+  .monthly-table tbody tr td:nth-child(3),
+  .monthly-table thead tr th:nth-child(4),
+  .monthly-table tbody tr td:nth-child(4),
+  .monthly-table thead tr th:nth-child(5),
+  .monthly-table tbody tr td:nth-child(5),
+  .monthly-table thead tr th:nth-child(6),
+  .monthly-table tbody tr td:nth-child(6),
+  .monthly-table thead tr th:nth-child(7),
+  .monthly-table tbody tr td:nth-child(7) {
+    width: 65px;
+    min-width: 65px;
+    font-size: 0.7rem;
+  }
+  
+  /* Add extra padding at bottom for last row visibility in Today's Report */
+  .summary-table-container {
+    padding-bottom: 80px;
   }
 }
 

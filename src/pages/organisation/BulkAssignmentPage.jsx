@@ -219,10 +219,11 @@ const BulkAssignmentPage = ({ onNotify }) => {
           }
         }
       });
+      // If sites are selected but don't have shifts assigned, show all location-filtered shifts
       if (shiftIds.size > 0) {
         return shifts.filter((s) => shiftIds.has(s.id));
       }
-      return [];
+      return shifts;
     }
 
     return shifts;

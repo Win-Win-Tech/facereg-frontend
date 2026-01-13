@@ -6,7 +6,7 @@ import httpClient from '../../../api/httpClient';
 import useTabActive from '../../../hooks/useTabActive';
 import "../../../styles/ManagementPages.css";
 
-const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin }) => {
+const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin, locationsLoaded }) => {
     const [payslips, setPayslips] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -24,6 +24,7 @@ const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin }) => {
 
     // Track if data has been loaded for this tab
     const hasLoadedRef = useRef(false);
+    const loadTimeoutRef = useRef(null);
 
     const loadPayslips = useCallback(async () => {
         setLoading(true);
@@ -41,13 +42,79 @@ const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     }, [selectedMonth, filterLocation, onNotify]);
 
-    // Load data when tab becomes active
-    useTabActive('records', () => {
-        if (!hasLoadedRef.current) {
+    // Load data when tab becomes active OR when locations become loaded (for page refresh)
+    // Use a single effect to handle both scenarios and prevent duplicate calls
+    React.useEffect(() => {
+        // Check if this tab is currently active
+        const path = window.location.pathname;
+        const isRecordsTab = path.includes('/payslip/records');
+        
+        if (isRecordsTab && locationsLoaded && !hasLoadedRef.current) {
             hasLoadedRef.current = true;
-            loadPayslips();
+            const loadPayslipsData = async () => {
+                setLoading(true);
+                try {
+                    const params = { month: selectedMonth };
+                    if (filterLocation) {
+                        params.location_id = filterLocation;
+                    }
+                    const response = await listPayslips(params);
+                    setPayslips(Array.isArray(response.data) ? response.data : []);
+                } catch (error) {
+                    onNotify?.('error', 'Error', 'Failed to load payslips');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadPayslipsData();
+        }
+    }, [locationsLoaded, selectedMonth, filterLocation, onNotify]);
+
+    // Also handle tab activation via useTabActive (for when switching tabs)
+    useTabActive('records', () => {
+        if (!hasLoadedRef.current && locationsLoaded) {
+            // This will be handled by the useEffect above, so we don't need to call loadPayslips here
+            // Just ensure hasLoadedRef is set to prevent duplicate calls
+            hasLoadedRef.current = true;
         }
     });
+
+    // Reload data when filterLocation or selectedMonth changes (with debouncing)
+    React.useEffect(() => {
+        if (hasLoadedRef.current) {
+            // Clear any pending load
+            if (loadTimeoutRef.current) {
+                clearTimeout(loadTimeoutRef.current);
+            }
+            
+            // Debounce the API call by 300ms to prevent rapid successive calls
+            loadTimeoutRef.current = setTimeout(() => {
+                const loadPayslipsData = async () => {
+                    setLoading(true);
+                    try {
+                        const params = { month: selectedMonth };
+                        if (filterLocation) {
+                            params.location_id = filterLocation;
+                        }
+                        const response = await listPayslips(params);
+                        setPayslips(Array.isArray(response.data) ? response.data : []);
+                    } catch (error) {
+                        onNotify?.('error', 'Error', 'Failed to load payslips');
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                loadPayslipsData();
+            }, 300);
+        }
+        
+        // Cleanup timeout on unmount or when dependencies change
+        return () => {
+            if (loadTimeoutRef.current) {
+                clearTimeout(loadTimeoutRef.current);
+            }
+        };
+    }, [filterLocation, selectedMonth, onNotify]);
 
     const handleDownload = async (payslip) => {
         setDownloadingId(payslip.id);
@@ -241,8 +308,7 @@ const PayslipRecords = ({ onNotify, filterLocation, isSuperAdmin }) => {
                             value={selectedMonth}
                             onChange={(e) => {
                                 setSelectedMonth(e.target.value);
-                                // Reload payslips when month changes
-                                setTimeout(() => loadPayslips(), 0);
+                                // Don't call loadPayslips() here - let useEffect handle it
                             }}
                             className="form-control"
                             style={{ width: '180px' }}

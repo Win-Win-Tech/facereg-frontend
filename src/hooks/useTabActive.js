@@ -9,6 +9,12 @@ import { useLocation } from 'react-router-dom';
 export const useTabActive = (tabId, onActive) => {
     const location = useLocation();
     const wasActiveRef = useRef(false);
+    const onActiveRef = useRef(onActive);
+
+    // Keep onActive ref updated without causing re-renders
+    useEffect(() => {
+        onActiveRef.current = onActive;
+    }, [onActive]);
 
     useEffect(() => {
         const isActive = location.pathname.includes(`/payslip/${tabId}`);
@@ -16,11 +22,11 @@ export const useTabActive = (tabId, onActive) => {
         // If tab just became active and wasn't before, trigger callback
         if (isActive && !wasActiveRef.current) {
             wasActiveRef.current = true;
-            onActive?.();
+            onActiveRef.current?.();
         } else if (!isActive) {
             wasActiveRef.current = false;
         }
-    }, [location.pathname, tabId, onActive]);
+    }, [location.pathname, tabId]); // Remove onActive from dependencies
 };
 
 export default useTabActive;

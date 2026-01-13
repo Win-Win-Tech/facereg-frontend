@@ -771,6 +771,16 @@ const WebcamCapture = () => {
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <div className="main-wrapper">
+        {/* Hamburger Menu Button - Shows on mobile (< 1024px) */}
+        <button
+          type="button"
+          className="menu-toggle"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+        
         <main className="main-content">
           {activeTab === 'dashboard' && (
             <div className="home-screen">
@@ -1038,7 +1048,8 @@ const WebcamCapture = () => {
         style={{ bottom: '100px', zIndex: 9999, padding: '0 16px' }}
       />
 
-      <div className={`bottom-tab-navigation ${isCompactNav ? 'compact' : ''}`}>
+      {/* Bottom Tab Navigation - Commented out, using hamburger menu drawer instead on mobile */}
+      {/* <div className={`bottom-tab-navigation ${isCompactNav ? 'compact' : ''}`}>
         {primaryNavItems.map((item) => (
           <button
             key={item.id}
@@ -1097,7 +1108,7 @@ const WebcamCapture = () => {
 
       {isCompactNav && overflowOpen && (
         <div className="bottom-more-overlay" onClick={() => setOverflowOpen(false)} />
-      )}
+      )} */}
 
     </div>
   );

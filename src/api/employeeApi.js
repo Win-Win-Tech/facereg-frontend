@@ -23,13 +23,16 @@ export const deleteEmployee = (id) =>
   httpClient.delete(`/employees/${id}/`);
 
 // Shift and Site APIs - Support multiple endpoint variations
-export const getShifts = (locationId) => {
-  const params = locationId ? { location_id: locationId } : {};
+export const getShifts = (params) => {
+  // Handle both string (locationId) and object (params) for backward compatibility
+  const queryParams = typeof params === 'string' 
+    ? (params ? { location_id: params } : {})
+    : (params || {});
   // Try multiple possible endpoints
-  return httpClient.get('/shifts/', { params })
+  return httpClient.get('/shifts/', { params: queryParams })
     .catch(() => {
       // Fallback: try createshift endpoint
-      return httpClient.get('/createshift/shifts/', { params })
+      return httpClient.get('/createshift/shifts/', { params: queryParams })
         .catch(() => {
           // Return empty array if both fail
           return Promise.resolve({ data: [] });
@@ -37,12 +40,15 @@ export const getShifts = (locationId) => {
     });
 };
 
-export const getSites = (locationId) => {
-  const params = locationId ? { location_id: locationId } : {};
-  return httpClient.get('/sites/', { params })
+export const getSites = (params) => {
+  // Handle both string (locationId) and object (params) for backward compatibility
+  const queryParams = typeof params === 'string' 
+    ? (params ? { location_id: params } : {})
+    : (params || {});
+  return httpClient.get('/sites/', { params: queryParams })
     .catch(() => {
       // Fallback: try alternative endpoint
-      return httpClient.get('/createshift/sites/', { params })
+      return httpClient.get('/createshift/sites/', { params: queryParams })
         .catch(() => {
           return Promise.resolve({ data: [] });
         });

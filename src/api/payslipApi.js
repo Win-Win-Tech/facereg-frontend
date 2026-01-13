@@ -24,14 +24,10 @@ export default {
 
 /**
  * Get all payslip field configurations
+ * @param {Object} params - Query parameters (e.g., { location_id: 'uuid' })
  */
-export const getPayslipConfigs = async () => {
-  try {
-    const response = await httpClient.get('/payslip-field-configs/');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+export const getPayslipConfigs = (params = {}) => {
+  return httpClient.get('/payslip-field-configs/', { params });
 };
 
 /**

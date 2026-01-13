@@ -7,7 +7,7 @@ import Modal from '../../../components/Modal';
 import useTabActive from '../../../hooks/useTabActive';
 import "../../../styles/ManagementPages.css";
 
-const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
+const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin, locationsLoaded }) => {
     const [templates, setTemplates] = useState([]);
     const [locations, setLocations] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -76,13 +76,70 @@ const PayslipTemplates = ({ onNotify, filterLocation, isSuperAdmin }) => {
         }
     }, [filterLocation, onNotify]);
 
-    // Load data when tab becomes active
+    // Load data when tab becomes active (only if locations are loaded)
     useTabActive('templates', () => {
-        if (!hasLoadedRef.current) {
+        if (!hasLoadedRef.current && locationsLoaded) {
             hasLoadedRef.current = true;
             loadData();
         }
     });
+
+    // Also trigger load when locations become loaded (for initial mount)
+    React.useEffect(() => {
+        if (locationsLoaded && !hasLoadedRef.current) {
+            // Check if this tab is active
+            const path = window.location.pathname;
+            if (path.includes('/payslip/templates')) {
+                hasLoadedRef.current = true;
+                const loadDataAsync = async () => {
+                    setLoading(true);
+                    try {
+                        const [templatesRes, locationsRes] = await Promise.all([
+                            listTemplates({ location_id: filterLocation }),
+                            getLocations()
+                        ]);
+
+                        const templatesData = Array.isArray(templatesRes.data) ? templatesRes.data : (templatesRes.data?.results || []);
+                        const locationsData = Array.isArray(locationsRes.data) ? locationsRes.data : (locationsRes.data?.results || []);
+
+                        setTemplates(templatesData);
+                        setLocations(locationsData);
+                    } catch (error) {
+                        onNotify?.('error', 'Error', 'Failed to load templates');
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                loadDataAsync();
+            }
+        }
+    }, [locationsLoaded, filterLocation, onNotify]);
+
+    // Reload data when filterLocation changes
+    React.useEffect(() => {
+        if (hasLoadedRef.current) {
+            const loadDataAsync = async () => {
+                setLoading(true);
+                try {
+                    const [templatesRes, locationsRes] = await Promise.all([
+                        listTemplates({ location_id: filterLocation }),
+                        getLocations()
+                    ]);
+
+                    const templatesData = Array.isArray(templatesRes.data) ? templatesRes.data : (templatesRes.data?.results || []);
+                    const locationsData = Array.isArray(locationsRes.data) ? locationsRes.data : (locationsRes.data?.results || []);
+
+                    setTemplates(templatesData);
+                    setLocations(locationsData);
+                } catch (error) {
+                    onNotify?.('error', 'Error', 'Failed to load templates');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadDataAsync();
+        }
+    }, [filterLocation, onNotify]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

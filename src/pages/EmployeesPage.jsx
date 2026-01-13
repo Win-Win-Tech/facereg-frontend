@@ -163,13 +163,16 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
 
   const loadShiftsAndSites = useCallback(async () => {
     try {
-      const [shiftsRes, sitesRes] = await Promise.all([getShifts(), getSites()]);
+      // For admin users, filter shifts by their location
+      const locationId = isSuperAdmin ? null : (auth?.user?.location_id || null);
+      const shiftParams = locationId ? { location_id: locationId } : {};
+      const [shiftsRes, sitesRes] = await Promise.all([getShifts(shiftParams), getSites()]);
       setShifts(Array.isArray(shiftsRes.data) ? shiftsRes.data : []);
       setSites(Array.isArray(sitesRes.data) ? sitesRes.data : []);
     } catch (error) {
       console.error('Failed to load shifts and sites:', error);
     }
-  }, []);
+  }, [isSuperAdmin, auth]);
 
   const loadPayslipConfigsData = useCallback(async () => {
     try {
@@ -284,12 +287,29 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
   }, [sites, selectedEmployeeForAssign]);
 
   const availableAssignmentShifts = useMemo(() => {
-    // If no sites selected, show all shifts
-    if (assignmentForm.site_ids.length === 0) {
-      return shifts;
+    // Shifts are already filtered by location when loaded in openAssignModal
+    // Filter shifts by employee's location (exclude shifts with null location_id)
+    let filteredShifts = shifts;
+    if (selectedEmployeeForAssign && selectedEmployeeForAssign.location_id) {
+      filteredShifts = shifts.filter((s) => {
+        const shiftLocationId = s.location_id || s.location;
+        // Only include shifts that have a location_id matching the employee's location
+        return shiftLocationId && String(shiftLocationId) === String(selectedEmployeeForAssign.location_id);
+      });
+    } else {
+      // If no employee selected, only show shifts with null location_id (global shifts)
+      filteredShifts = shifts.filter((s) => {
+        const shiftLocationId = s.location_id || s.location;
+        return !shiftLocationId;
+      });
     }
 
-    // Show only shifts assigned to the selected sites
+    // If no sites selected, show all location-filtered shifts
+    if (assignmentForm.site_ids.length === 0) {
+      return filteredShifts;
+    }
+
+    // Show only shifts assigned to the selected sites (from location-filtered shifts)
     const selectedSiteIds = new Set(assignmentForm.site_ids);
     const shiftIds = new Set();
     sites.forEach((site) => {
@@ -301,8 +321,12 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
         }
       }
     });
-    return shifts.filter((s) => shiftIds.has(s.id));
-  }, [assignmentForm.site_ids, shifts, sites]);
+    // If sites are selected but don't have shifts assigned, show all location-filtered shifts
+    if (shiftIds.size === 0) {
+      return filteredShifts;
+    }
+    return filteredShifts.filter((s) => shiftIds.has(s.id));
+  }, [assignmentForm.site_ids, shifts, sites, selectedEmployeeForAssign]);
 
   const openCreateModal = () => {
     setModalLoading(false);
@@ -551,10 +575,12 @@ const EmployeesPage = ({ onNotify, isSuperAdmin, auth }) => {
     setExistingAssignmentId(null);
     setShowAssignModal(true);
     
-    // Load shifts and sites
+    // Load shifts and sites filtered by employee's location
     try {
+      const locationId = employee.location_id;
+      const shiftParams = locationId ? { location_id: locationId } : {};
       const [shiftsRes, sitesRes] = await Promise.all([
-        getShifts(),
+        getShifts(shiftParams),
         getSites(),
       ]);
       setShifts(Array.isArray(shiftsRes.data) ? shiftsRes.data : []);

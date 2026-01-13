@@ -114,16 +114,23 @@ body {
   background: rgba(255, 255, 255, 0.08);
   border: none;
   color: #cbd5f5;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   display: none;
   cursor: pointer;
   font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.2s ease;
 }
 
 .sidebar-close:hover {
   background: rgba(255, 255, 255, 0.18);
+  transform: scale(1.05);
 }
 
 .sidebar-nav {
@@ -271,6 +278,39 @@ body {
   height: 100vh;
 }
 
+/* Hamburger Menu Toggle Button */
+.menu-toggle {
+  display: none;
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(37, 99, 235, 0.95);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  z-index: 1003;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.menu-toggle:hover {
+  background: rgba(37, 99, 235, 1);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.menu-toggle:active {
+  transform: scale(0.95);
+}
+
 /* Top Navigation */
 .top-nav {
   position: sticky;
@@ -292,22 +332,7 @@ body {
   gap: 18px;
 }
 
-.menu-toggle {
-  display: none;
-  background: rgba(59, 130, 246, 0.12);
-  border: none;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  color: #2563eb;
-  font-size: 1.3rem;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.menu-toggle:hover {
-  background: rgba(59, 130, 246, 0.2);
-}
+/* Old menu-toggle styles removed - using new fixed position hamburger button above */
 
 .nav-brand {
   display: flex;
@@ -1465,7 +1490,7 @@ body {
   }
 
   .menu-toggle {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
   }
@@ -1473,7 +1498,7 @@ body {
 
 @media (max-width: 768px) {
   .main-content {
-    padding: 24px 20px 120px;
+    padding: 56px 20px 120px 20px;
   }
 
   .tab-strip {
@@ -2085,11 +2110,28 @@ button:focus-visible {
   }
 
   .sidebar-close {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .sidebar-header {
+    padding: 20px;
   }
 
   .sidebar-brand-text {
     display: flex;
+  }
+  
+  /* Add padding-top to main-content to prevent hamburger button from hiding headers */
+  .main-content {
+    padding-top: 56px;
+  }
+  
+  /* Ensure management header stays in same row with hamburger button */
+  .management-header {
+    padding-right: 50px;
+    flex-wrap: nowrap;
   }
 
   /* Main wrapper adjustments */
@@ -2150,13 +2192,17 @@ button:focus-visible {
     overflow-y: auto;
   }
 
-  /* Bottom navigation for mobile */
-  .bottom-tab-navigation.compact {
+  /* Bottom navigation for mobile - Commented out, using hamburger menu drawer instead */
+  /* .bottom-tab-navigation.compact {
     display: flex;
   }
 
   .bottom-tab-navigation {
     display: flex;
+  } */
+  
+  .bottom-tab-navigation {
+    display: none !important;
   }
 }
 
@@ -2188,9 +2234,13 @@ button:focus-visible {
 }
 
 @media (max-width: 1024px) {
-  /* Hide sidebar on smaller desktops */
+  /* Hide sidebar on smaller desktops - show as drawer overlay */
   .sidebar {
     transform: translateX(-100%);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
   }
 
   .menu-toggle {
@@ -2199,6 +2249,11 @@ button:focus-visible {
 
   .main-wrapper {
     margin-left: 0;
+  }
+  
+  /* Hide bottom navigation on mobile - using hamburger menu drawer instead */
+  .bottom-tab-navigation {
+    display: none !important;
   }
 }
 
@@ -2408,7 +2463,7 @@ button:focus-visible {
   }
 
   .main-content {
-    padding: 20px 16px 100px;
+    padding: 56px 16px 100px 16px;
   }
 }
 
@@ -2442,6 +2497,6 @@ button:focus-visible {
   }
 
   .main-content {
-    padding: 16px 12px 80px;
+    padding: 56px 12px 80px 12px;
   }
 }
