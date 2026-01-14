@@ -48,6 +48,20 @@ export const updatePayslipConfig = (id, payload) => httpClient.patch(`/payslip-f
 
 export const deletePayslipConfig = (id) => httpClient.delete(`/payslip-field-configs/${id}/`);
 
+/**
+ * Create default salary config for a specific location
+ */
+export const createDefaultSalaryConfig = (locationId) => {
+  return httpClient.post('/payslip-field-configs/create-default/', { location_id: locationId });
+};
+
+/**
+ * Create default salary configs for all locations (SuperAdmin only)
+ */
+export const createDefaultSalaryConfigsForAll = () => {
+  return httpClient.post('/payslip-field-configs/create-default-all/');
+};
+
 // Payslip fields
 export const listFields = (configId) => httpClient.get(`/payslip-field-configs/${configId}/fields/`);
 export const createField = (configId, payload) =>
@@ -56,6 +70,13 @@ export const updateField = (configId, fieldId, payload) =>
   httpClient.patch(`/payslip-field-configs/${configId}/fields/${fieldId}/`, payload);
 export const deleteField = (configId, fieldId) =>
   httpClient.delete(`/payslip-field-configs/${configId}/fields/${fieldId}/`);
+
+/**
+ * Bulk create fields for a config
+ */
+export const bulkCreateFields = (configId, fields) => {
+  return httpClient.post(`/payslip-field-configs/${configId}/fields/bulk/`, { fields });
+};
 
 // Payslip layout templates
 export const listTemplates = (params) => httpClient.get('/payslip-templates/', { params });

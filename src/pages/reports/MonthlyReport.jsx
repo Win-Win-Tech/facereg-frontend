@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { getMonthlyAttendanceStatus, exportMonthlyAttendanceStatus} from '../../api/attendanceApi';
 import { getEmployees } from '../../api/employeeApi';
 import { getLocations } from '../../api/locationApi';
@@ -24,6 +24,10 @@ const MonthlyReport = ({ onNotify }) => {
   const [statusFilter, setStatusFilter] = useState('all');
 
   const [locations, setLocations] = useState([]);
+  const [filterLocation, setFilterLocation] = useState(locationId || '');
+  const [locationsLoaded, setLocationsLoaded] = useState(!isSuperAdmin);
+  const loadTimeoutRef = useRef(null);
+  const locationsLoadedRef = useRef(false);
 
   const locationMap = useMemo(() => {
     const map = {};
@@ -44,11 +48,22 @@ const MonthlyReport = ({ onNotify }) => {
     return locations.length === 0 ? 'Loading location…' : 'Location not set';
   }, [isSuperAdmin, locationId, locationMap, locations.length]);
 
-  const loadMonthly = async (forMonth) => {
+  const loadMonthly = useCallback(async (forMonth) => {
+    // For superadmin, require location selection
+    if (isSuperAdmin && !filterLocation) {
+      setMonthlyData([]);
+      return;
+    }
+
     setMonthlyLoading(true);
     setMonthlyError(null);
     try {
-      const res = await getMonthlyAttendanceStatus({ month: forMonth });
+      const params = { month: forMonth };
+      // Add location_id for superadmin
+      if (isSuperAdmin && filterLocation) {
+        params.location_id = filterLocation;
+      }
+      const res = await getMonthlyAttendanceStatus(params);
       if (Array.isArray(res.data)) {
         setMonthlyData(res.data);
       } else {
@@ -61,7 +76,7 @@ const MonthlyReport = ({ onNotify }) => {
     } finally {
       setMonthlyLoading(false);
     }
-  };
+  }, [isSuperAdmin, filterLocation]);
 
   const triggerDownloadFromResponse = (res, fallbackName = 'export.csv') => {
     try {
@@ -90,13 +105,24 @@ const MonthlyReport = ({ onNotify }) => {
   };
 
   const exportMonthly = async (forMonth) => {
+    // For superadmin, require location selection
+    if (isSuperAdmin && !filterLocation) {
+      alert('Please select a location first');
+      return;
+    }
+
     setMonthlyExportLoading(true);
     try {
-      const jsonRes = await exportMonthlyAttendanceStatus({ month: forMonth });
+      const params = { month: forMonth };
+      // Add location_id for superadmin
+      if (isSuperAdmin && filterLocation) {
+        params.location_id = filterLocation;
+      }
+      const jsonRes = await exportMonthlyAttendanceStatus(params);
       if (jsonRes.data?.file_url) {
         window.open(jsonRes.data.file_url, '_blank');
       } else {
-        const blobRes = await exportMonthlyAttendanceStatus({ month: forMonth }, { responseType: 'blob' });
+        const blobRes = await exportMonthlyAttendanceStatus(params, { responseType: 'blob' });
         triggerDownloadFromResponse(blobRes, `monthly-attendance-${forMonth}.csv`);
       }
     } catch (error) {
@@ -117,7 +143,7 @@ const MonthlyReport = ({ onNotify }) => {
         return false;
       }
       if (statusFilter === 'present') {
-        return Object.values(record).some((value) => value === 'P');
+        return Object.values(record).some((value) => value === 'P' || value === 'HP');
       }
       if (statusFilter === 'absent') {
         return Object.values(record).some((value) => value === 'A');
@@ -176,7 +202,7 @@ const MonthlyReport = ({ onNotify }) => {
     if (!v) return false;
     if (typeof v !== 'string') return false;
     const s = v.trim().toLowerCase();
-    return s === 'ha' || s === 'h' || s.includes('half');
+    return s === 'hp' || s === 'ha' || s === 'h' || s.includes('half');
   };
 
   const getCounts = (employee) => {
@@ -185,7 +211,12 @@ const MonthlyReport = ({ onNotify }) => {
     monthlyDateColumns.forEach((column) => {
       const value = employee[column.key];
       if (value === 'P') present += 1;
-      if (value === 'A') absent += 1;
+      else if (value === 'HP') {
+        // Half day Present counts as 0.5 present and 0.5 absent
+        present += 0.5;
+        absent += 0.5;
+      }
+      else if (value === 'A') absent += 1;
     });
     return { present, absent };
   };
@@ -229,13 +260,15 @@ const MonthlyReport = ({ onNotify }) => {
                 {monthlyDateColumns.map((column) => {
                   const raw = employee[column.key];
                   const value = raw == null || raw === '' ? '—' : raw;
-                  const displayValue = isHalfDayValue(String(value)) ? 'HA' : value;
+                  const stringValue = String(value).trim().toUpperCase();
+                  // Display 'HP' as 'HP' (Half day Present), keep 'HA' for backward compatibility
+                  const displayValue = stringValue === 'HP' ? 'HP' : (isHalfDayValue(String(value)) ? 'HA' : value);
                   const statusClass =
                     displayValue === 'P'
                       ? 'status-pill present'
                       : displayValue === 'A'
                       ? 'status-pill absent'
-                      : isHalfDayValue(String(value))
+                      : displayValue === 'HP' || isHalfDayValue(String(value))
                       ? 'status-pill half-day'
                       : 'status-pill neutral';
                   return (
@@ -252,8 +285,40 @@ const MonthlyReport = ({ onNotify }) => {
     );
   };
 
+  // Load locations for superadmin
   useEffect(() => {
-    loadMonthly(month);
+    if (isSuperAdmin && !locationsLoadedRef.current) {
+      locationsLoadedRef.current = true;
+      (async () => {
+        try {
+          const res = await getLocations({ include_deleted: false });
+          if (Array.isArray(res.data)) {
+            setLocations(res.data);
+            // Auto-select first location for superadmin
+            if (res.data.length > 0 && !filterLocation) {
+              setFilterLocation(res.data[0].id);
+            }
+            setLocationsLoaded(true);
+            // Reset initial load flag when locations are ready
+            isInitialLoad.current = true;
+          }
+        } catch (error) {
+          console.warn('Failed to load locations', error?.response?.data || error.message);
+          setLocations([]);
+          setLocationsLoaded(true);
+          // Reset initial load flag even on error
+          isInitialLoad.current = true;
+        }
+      })();
+    } else if (!isSuperAdmin) {
+      setLocationsLoaded(true);
+      // Reset initial load flag for non-superadmin
+      isInitialLoad.current = true;
+    }
+  }, [isSuperAdmin]);
+
+  // Load employees
+  useEffect(() => {
     (async () => {
       try {
         const res = await getEmployees();
@@ -267,27 +332,66 @@ const MonthlyReport = ({ onNotify }) => {
         setEmployeeList([]);
       }
     })();
-    (async () => {
-      try {
-        const res = await getLocations({ include_deleted: false });
-        if (Array.isArray(res.data)) {
-          setLocations(res.data);
-        }
-      } catch (error) {
-        console.warn('Failed to load locations', error?.response?.data || error.message);
-        setLocations([]);
-      }
-    })();
   }, []);
 
+  // Initial load on mount (for non-superadmin or when locations are ready)
+  const isInitialLoad = useRef(true);
+
+  // Debounced load function
   useEffect(() => {
-    loadMonthly(month);
-  }, [month]);
+    if (!locationsLoaded) return;
+    
+    // For superadmin, wait for location to be selected
+    if (isSuperAdmin && !filterLocation) {
+      return;
+    }
+    
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+    
+    // On initial load, don't debounce
+    const shouldLoadImmediately = isInitialLoad.current;
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+    }
+    
+    if (shouldLoadImmediately) {
+      loadMonthly(month);
+    } else {
+      // Debounce API calls to prevent multiple rapid requests
+      loadTimeoutRef.current = setTimeout(() => {
+        loadMonthly(month);
+      }, 300);
+    }
+    
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+    };
+  }, [month, filterLocation, locationsLoaded, loadMonthly, isSuperAdmin]);
 
   return (
     <section className="report-section">
       <div className="report-controls-compact">
         <div className="filter-group-compact">
+          {isSuperAdmin && (
+            <label className="filter-label-compact">
+              <span>Location:</span>
+              <select
+                value={filterLocation}
+                onChange={(e) => setFilterLocation(e.target.value)}
+                className="filter-select-compact"
+                disabled={!locationsLoaded}
+              >
+                <option value="">Select Location</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="filter-label-compact">
             <span>Month:</span>
             <input 
@@ -343,6 +447,10 @@ const MonthlyReport = ({ onNotify }) => {
           <span className="chip-icon">📍</span>
           <span className="chip-text">{adminLocationName}</span>
         </div>
+      )}
+
+      {isSuperAdmin && !filterLocation && locationsLoaded && (
+        <div className="summary-error">Please select a location to view attendance report</div>
       )}
 
       {monthlyLoading ? (

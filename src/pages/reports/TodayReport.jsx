@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import {
   getTodayAttendanceSummary,
   exportTodayAttendanceSummary,
@@ -24,7 +24,11 @@ const TodayReport = ({ onNotify }) => {
     return d.toISOString().slice(0, 10);
   });
   const [locations, setLocations] = useState([]);
+  const [filterLocation, setFilterLocation] = useState(locationId || '');
+  const [locationsLoaded, setLocationsLoaded] = useState(!isSuperAdmin);
   const isInitialTodayLoad = useRef(true);
+  const loadTimeoutRef = useRef(null);
+  const locationsLoadedRef = useRef(false);
 
   const locationMap = useMemo(() => {
     const map = {};
@@ -45,30 +49,48 @@ const TodayReport = ({ onNotify }) => {
     return locations.length === 0 ? 'Loading location…' : 'Location not set';
   }, [isSuperAdmin, locationId, locationMap, locations.length]);
 
-  const loadToday = async () => {
+  const loadToday = useCallback(async () => {
+    // For superadmin, require location selection
+    if (isSuperAdmin && !filterLocation) {
+      setTodayData([]);
+      return;
+    }
+
     setTodayLoading(true);
     setTodayError(null);
     try {
       let params = {};
       const today = new Date();
-      const isoDate = (d) => d.toISOString().slice(0, 10);
+      // Use local date string (YYYY-MM-DD) without timezone conversion
+      const localDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
       if (todayFilter === 'today') {
-        params.start_date = isoDate(today);
-        params.end_date = isoDate(today);
+        params.start_date = localDate(today);
+        params.end_date = localDate(today);
       } else if (todayFilter === 'yesterday') {
         const y = new Date(today);
         y.setDate(y.getDate() - 1);
-        params.start_date = isoDate(y);
-        params.end_date = isoDate(y);
+        params.start_date = localDate(y);
+        params.end_date = localDate(y);
       } else if (todayFilter === 'thisweek') {
         const first = new Date(today);
         first.setDate(first.getDate() - 6);
-        params.start_date = isoDate(first);
-        params.end_date = isoDate(today);
+        params.start_date = localDate(first);
+        params.end_date = localDate(today);
       } else if (todayFilter === 'custom') {
         params.start_date = todayStartDate;
         params.end_date = todayEndDate;
       }
+      
+      // Add location_id for superadmin
+      if (isSuperAdmin && filterLocation) {
+        params.location_id = filterLocation;
+      }
+      
       const res = await getTodayAttendanceSummary(params);
       let arr = [];
       if (Array.isArray(res.data)) arr = res.data;
@@ -81,7 +103,7 @@ const TodayReport = ({ onNotify }) => {
     } finally {
       setTodayLoading(false);
     }
-  };
+  }, [isSuperAdmin, filterLocation, todayFilter, todayStartDate, todayEndDate]);
 
   const isMissing = (v) => v == null || v === '' || String(v).trim() === '—' || String(v).trim() === '';
 
@@ -155,30 +177,48 @@ const TodayReport = ({ onNotify }) => {
   };
 
   const exportToday = async () => {
+    // For superadmin, require location selection
+    if (isSuperAdmin && !filterLocation) {
+      alert('Please select a location first');
+      return;
+    }
+
     setTodayExportLoading(true);
     try {
       let params = {};
+      const today = new Date();
+      // Use local date string (YYYY-MM-DD) without timezone conversion
+      const localDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
       if (todayFilter === 'custom') {
         params.start_date = todayStartDate;
         params.end_date = todayEndDate;
       } else {
-        const today = new Date();
-        const isoDate = (d) => d.toISOString().slice(0, 10);
         if (todayFilter === 'today') {
-          params.start_date = isoDate(today);
-          params.end_date = isoDate(today);
+          params.start_date = localDate(today);
+          params.end_date = localDate(today);
         } else if (todayFilter === 'yesterday') {
           const y = new Date(today);
           y.setDate(y.getDate() - 1);
-          params.start_date = isoDate(y);
-          params.end_date = isoDate(y);
+          params.start_date = localDate(y);
+          params.end_date = localDate(y);
         } else if (todayFilter === 'thisweek') {
           const first = new Date(today);
           first.setDate(first.getDate() - 5);
-          params.start_date = isoDate(first);
-          params.end_date = isoDate(today);
+          params.start_date = localDate(first);
+          params.end_date = localDate(today);
         }
       }
+      
+      // Add location_id for superadmin
+      if (isSuperAdmin && filterLocation) {
+        params.location_id = filterLocation;
+      }
+      
       const jsonRes = await exportTodayAttendanceSummary(params);
       if (jsonRes.data?.file_url) {
         window.open(jsonRes.data.file_url, '_blank');
@@ -193,33 +233,78 @@ const TodayReport = ({ onNotify }) => {
     }
   };
 
+  // Load locations for superadmin
   useEffect(() => {
-    loadToday();
-    (async () => {
-      try {
-        const res = await getLocations({ include_deleted: false });
-        if (Array.isArray(res.data)) {
-          setLocations(res.data);
+    if (isSuperAdmin && !locationsLoadedRef.current) {
+      locationsLoadedRef.current = true;
+      (async () => {
+        try {
+          const res = await getLocations({ include_deleted: false });
+          if (Array.isArray(res.data)) {
+            setLocations(res.data);
+            // Auto-select first location for superadmin
+            if (res.data.length > 0 && !filterLocation) {
+              setFilterLocation(res.data[0].id);
+            }
+            setLocationsLoaded(true);
+          }
+        } catch (error) {
+          console.warn('Failed to load locations', error?.response?.data || error.message);
+          setLocations([]);
+          setLocationsLoaded(true);
         }
-      } catch (error) {
-        console.warn('Failed to load locations', error?.response?.data || error.message);
-        setLocations([]);
-      }
-    })();
-  }, []);
+      })();
+    } else if (!isSuperAdmin) {
+      setLocationsLoaded(true);
+    }
+  }, [isSuperAdmin, filterLocation]);
 
+  // Debounced load function
   useEffect(() => {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+    
     if (isInitialTodayLoad.current) {
       isInitialTodayLoad.current = false;
+      loadToday();
+    } else {
+      // Debounce API calls to prevent multiple rapid requests
+      loadTimeoutRef.current = setTimeout(() => {
+        loadToday();
+      }, 300);
     }
-    loadToday();
-  }, [todayFilter, todayStartDate, todayEndDate]);
+    
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+    };
+  }, [loadToday]);
 
   return (
     <section className="report-section">
       <div className="report-section-header">
         <div className="summary-actions">
           <div className="filter-group-compact">
+            {isSuperAdmin && (
+              <div className="filter-item">
+                <label className="filter-label-compact">
+                  <span>Location:</span>
+                  <select
+                    value={filterLocation}
+                    onChange={(e) => setFilterLocation(e.target.value)}
+                    className="filter-select-compact"
+                    disabled={!locationsLoaded}
+                  >
+                    <option value="">Select Location</option>
+                    {locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
             <div className="filter-item">
               <label className="filter-label-compact">
                 <select
@@ -267,6 +352,10 @@ const TodayReport = ({ onNotify }) => {
           <span className="chip-icon">📍</span>
           <span className="chip-text">{adminLocationName}</span>
         </div>
+      )}
+
+      {isSuperAdmin && !filterLocation && locationsLoaded && (
+        <div className="summary-error">Please select a location to view attendance report</div>
       )}
 
       {todayLoading ? (
@@ -334,3 +423,4 @@ const TodayReport = ({ onNotify }) => {
 };
 
 export default TodayReport;
+
