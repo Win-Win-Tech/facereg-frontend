@@ -361,7 +361,7 @@ const MonthlyReport = ({ onNotify }) => {
     } else {
       // Debounce API calls to prevent multiple rapid requests
       loadTimeoutRef.current = setTimeout(() => {
-        loadMonthly(month);
+    loadMonthly(month);
       }, 300);
     }
     
