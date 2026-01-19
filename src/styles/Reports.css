@@ -187,6 +187,7 @@
   display: flex;
   flex-direction: column;
   overflow: visible;
+  max-height: 80vh;
   /* allow child flex items to shrink and overflow for scrolling */
   min-width: 0;
   min-height: 0;
@@ -598,7 +599,8 @@
   overflow-y: auto;
   height: 100%;
   min-width: 0;
-  padding-bottom: 60px; /* Ensure last row is clearly visible on mobile */
+  padding-bottom: 60px;
+  /* Ensure last row is clearly visible on mobile */
   margin-bottom: 20px;
   flex: 1;
   min-height: 0;
@@ -1187,7 +1189,7 @@
 
 @media (max-width: 768px) {
   .reports-container {
-    height: 85vh;
+    height: 100%;
     padding: 0 12px;
     width: 90vw;
     min-height: 0;
@@ -1330,7 +1332,7 @@
     width: 100%;
     max-width: 100%;
     margin: 0;
-    height: 85vh;
+    height: 100%;
     min-height: 0;
     border-radius: 0;
   }
@@ -1409,12 +1411,12 @@
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
   }
-  
+
   /* Monthly table - make date columns narrower to fit ~15-16 per visible row (2 rows for 31 days) */
   .monthly-table {
     min-width: auto;
   }
-  
+
   /* Date columns (starting from 8th column - after Employee, Dept, Location, Shift, Present, Absent) */
   .monthly-table thead tr th:nth-child(n+8),
   .monthly-table tbody tr td:nth-child(n+8) {
@@ -1425,25 +1427,25 @@
     padding: 0.25rem 0.15rem;
     text-align: center;
   }
-  
+
   /* Fixed columns maintain their width */
   .monthly-table thead tr th:nth-child(1),
   .monthly-table tbody tr td:nth-child(1) {
     width: 100px;
     min-width: 100px;
   }
-  
+
   /* Ensure sticky first column has proper z-index on mobile */
   .monthly-table th:first-child {
     z-index: 102;
     background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   }
-  
+
   .monthly-table td:first-child {
     z-index: 5;
     background: white;
   }
-  
+
   .monthly-table thead tr th:nth-child(2),
   .monthly-table tbody tr td:nth-child(2),
   .monthly-table thead tr th:nth-child(3),
@@ -1460,7 +1462,7 @@
     min-width: 65px;
     font-size: 0.7rem;
   }
-  
+
   /* Add extra padding at bottom for last row visibility in Today's Report */
   .summary-table-container {
     padding-bottom: 80px;
